@@ -9,6 +9,8 @@ import colorlog
 import pandas as pd
 import tqdm
 
+from codecarbon import OfflineEmissionsTracker
+
 logger = colorlog.getLogger()
 
 
@@ -62,11 +64,52 @@ def extract_enron_sent_emails(maildir_directory="../maildir/") -> pd.DataFrame:
     return pd.DataFrame(data={"filename": mails, "mail_body": mail_contents})
 
 
+def track_energy_footprint(
+    tracker, experiment_name, experiment_function, *args, **kwargs
+):
+    begin_emission = tracker.flush()
+    begin_energy = tracker._total_energy.kWh
+
+    logger.warning(experiment_name + " begins")
+    experiment_function(*args, **kwargs)
+
+    end_emission = tracker.flush()
+    end_energy = tracker._total_energy.kWh
+    logger.info("Cost summary:")
+    logger.info(f"Carbon footprint: {end_emission - begin_emission} KgCO2e")
+    logger.info(f"Energy consumption: {end_energy - begin_energy} KWh")
+    logger.warning(experiment_name + " ends...")
+
+
+def sign_all(mails):
+    ...
+
+
+def sign_and_encrypt_all(mails):
+    ...
+
+
 def experiment():
     setup_logger()
-    logger.info("Experiment begins...")
+    logger.error("Experiment begins...")
 
-    logger.info("Experiment ends...")
+    logger.warning("Extracting Enron emails")
+    mails = extract_enron_sent_emails()
+
+    tracker = OfflineEmissionsTracker(
+        measure_power_secs=5,
+        country_iso_code="FRA",
+        output_file="raw_emissions.csv",
+        log_level="error",
+    )
+    tracker.start()
+
+    track_energy_footprint(tracker, "Sign", sign_all, mails)
+
+    track_energy_footprint(tracker, "Sign+encrypt", sign_and_encrypt_all, mails)
+
+    tracker.stop()
+    logger.error("Experiment ends...")
 
 
 if __name__ == "__main__":
