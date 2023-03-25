@@ -7,9 +7,17 @@ import logging
 
 import colorlog
 import pandas as pd
+import pgpy
 import tqdm
 
 from codecarbon import OfflineEmissionsTracker
+from pgpy.constants import (
+    PubKeyAlgorithm,
+    KeyFlags,
+    HashAlgorithm,
+    SymmetricKeyAlgorithm,
+    CompressionAlgorithm,
+)
 
 logger = colorlog.getLogger()
 
@@ -81,11 +89,62 @@ def track_energy_footprint(
     logger.warning(experiment_name + " ends...")
 
 
-def sign_all(mails):
+def generate_keys():
+    alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
+    uid = pgpy.PGPUID.new("Alice", comment="Alice (sender)", email="alice@example.com")
+    alice_key.add_uid(
+        uid,
+        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
+        hashes=[
+            HashAlgorithm.SHA256,
+            HashAlgorithm.SHA384,
+            HashAlgorithm.SHA512,
+            HashAlgorithm.SHA224,
+        ],
+        ciphers=[
+            SymmetricKeyAlgorithm.AES256,
+            SymmetricKeyAlgorithm.AES192,
+            SymmetricKeyAlgorithm.AES128,
+        ],
+        compression=[
+            CompressionAlgorithm.ZLIB,
+            CompressionAlgorithm.BZ2,
+            CompressionAlgorithm.ZIP,
+            CompressionAlgorithm.Uncompressed,
+        ],
+    )
+
+    bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
+    uid = pgpy.PGPUID.new("Bob", comment="Bob (receiver)", email="bob@example.com")
+    bob_key.add_uid(
+        uid,
+        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
+        hashes=[
+            HashAlgorithm.SHA256,
+            HashAlgorithm.SHA384,
+            HashAlgorithm.SHA512,
+            HashAlgorithm.SHA224,
+        ],
+        ciphers=[
+            SymmetricKeyAlgorithm.AES256,
+            SymmetricKeyAlgorithm.AES192,
+            SymmetricKeyAlgorithm.AES128,
+        ],
+        compression=[
+            CompressionAlgorithm.ZLIB,
+            CompressionAlgorithm.BZ2,
+            CompressionAlgorithm.ZIP,
+            CompressionAlgorithm.Uncompressed,
+        ],
+    )
+    return alice_key, bob_key
+
+
+def sign_all(mails, alice_key, bob_key):
     ...
 
 
-def sign_and_encrypt_all(mails):
+def sign_and_encrypt_all(mails, alice_key, bob_key):
     ...
 
 
@@ -96,6 +155,9 @@ def experiment():
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
 
+    logger.warning("Generating cryptographic keys")
+    alice_key, bob_key = generate_keys()
+
     tracker = OfflineEmissionsTracker(
         measure_power_secs=5,
         country_iso_code="FRA",
@@ -104,9 +166,11 @@ def experiment():
     )
     tracker.start()
 
-    track_energy_footprint(tracker, "Sign", sign_all, mails)
+    track_energy_footprint(tracker, "Sign", sign_all, mails, alice_key, bob_key)
 
-    track_energy_footprint(tracker, "Sign+encrypt", sign_and_encrypt_all, mails)
+    track_energy_footprint(
+        tracker, "Sign+encrypt", sign_and_encrypt_all, mails, alice_key, bob_key
+    )
 
     tracker.stop()
     logger.error("Experiment ends...")

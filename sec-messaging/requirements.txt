@@ -1,5 +1,4 @@
 pandas
 tqdm
 colorlog
-PGPy
 codecarbon
