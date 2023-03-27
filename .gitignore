@@ -1,2 +1,5 @@
 */*.log
 */*.csv
+
+# Enron mail directory
+sec-messaging/maildir

@@ -58,7 +58,7 @@ def get_body_from_enron_email(mail):
     return "".join(parts)
 
 
-def extract_enron_sent_emails(maildir_directory="../maildir/") -> pd.DataFrame:
+def extract_enron_sent_emails(maildir_directory="maildir/") -> pd.DataFrame:
     """Extract the emails from the _sent_mail folder of each Enron mailbox."""
     path = os.path.expanduser(maildir_directory)
     mails = glob.glob(f"{path}/*/_sent_mail/*")
@@ -140,12 +140,23 @@ def generate_keys():
     return alice_key, bob_key
 
 
-def sign_all(mails, alice_key, bob_key):
-    ...
+def sign_all(mails, sender_key, _recv_key):
+
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
+    ):
+        body = pgpy.PGPMessage.new(row_tuple.mail_body)
+        sender_key.sign(body)
 
 
-def sign_and_encrypt_all(mails, alice_key, bob_key):
-    ...
+def sign_and_encrypt_all(mails, sender_key, recv_key):
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+    ):
+        body = pgpy.PGPMessage.new(row_tuple.mail_body)
+        body |= sender_key.sign(body)  # Sign and append the signature
+
+        recv_key.encrypt(body)
 
 
 def experiment():
@@ -154,6 +165,7 @@ def experiment():
 
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
+    assert len(mails) == 30109
 
     logger.warning("Generating cryptographic keys")
     alice_key, bob_key = generate_keys()
@@ -166,11 +178,16 @@ def experiment():
     )
     tracker.start()
 
-    track_energy_footprint(tracker, "Sign", sign_all, mails, alice_key, bob_key)
+    try:
+        track_energy_footprint(tracker, "Sign", sign_all, mails, alice_key, bob_key)
 
-    track_energy_footprint(
-        tracker, "Sign+encrypt", sign_and_encrypt_all, mails, alice_key, bob_key
-    )
+        track_energy_footprint(
+            tracker, "Sign+encrypt", sign_and_encrypt_all, mails, alice_key, bob_key
+        )
+    except Exception as err:
+        logger.error("Error occured: " + str(err))
+    except KeyboardInterrupt:
+        logger.error("Caught a keyboard interrupt")
 
     tracker.stop()
     logger.error("Experiment ends...")
