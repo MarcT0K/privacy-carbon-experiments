@@ -22,6 +22,8 @@ from pgpy.constants import (
 logger = colorlog.getLogger()
 
 # TODO: add a communication size estimation
+# TODO: fix ECC support
+# TODO: add Signal (https://github.com/freedomofpress/signal-protocol)?
 
 
 def setup_logger(log_level=logging.INFO):
@@ -91,15 +93,21 @@ def track_energy_footprint(
     logger.warning(experiment_name + " ends...")
 
 
-def generate_keys():
+def generate_keys(key_type="ECC"):
+    if key_type == "RSA":
+        key_params = {"key_type": "RSA", "key_length": 3072}
+    elif key_type == "ECC":
+        key_params = {"key_curve": "nistp384"}
+    else:
+        raise NotImplementedError
+
+    # Key size: https://crypto.stackexchange.com/questions/76699/elliptic-curve-vs-rsa-key-length-comparison
     if not os.path.exists("temp"):
         os.mkdir("temp")
     gpg = gnupg.GPG(gnupghome="temp")
 
     alice_key_config = gpg.gen_key_input(
-        key_type="RSA",
-        key_length=4096,
-        key_usage="sign encrypt",
+        **key_params,
         name_real="Alice",
         name_comment="Alice (sender)",
         name_email="alice@example.com",
@@ -108,9 +116,7 @@ def generate_keys():
     alice_key = gpg.gen_key(alice_key_config)
 
     bob_key_config = gpg.gen_key_input(
-        key_type="RSA",
-        key_length=4096,
-        key_usage="sign encrypt",
+        **key_params,
         name_real="Bob",
         name_comment="Bob (receiver)",
         name_email="bob@example.com",
@@ -121,14 +127,7 @@ def generate_keys():
     return alice_key, bob_key
 
 
-def sign_all(mails, sender_key, _recv_key):
-    for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
-    ):
-        signed_data = sender_key.gpg.sign(row_tuple.mail_body)
-
-
-def sign_and_encrypt_all(mails, sender_key, recv_key):
+def sign_all(mails, sender_key, recv_key):
     sender_keyid = None
     for key_dict in sender_key.gpg.list_keys():
         if key_dict["fingerprint"] == sender_key.fingerprint:
@@ -137,11 +136,31 @@ def sign_and_encrypt_all(mails, sender_key, recv_key):
     assert sender_keyid is not None
 
     for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
+    ):
+        signed = sender_key.gpg.sign(row_tuple.mail_body, keyid=sender_keyid)
+        assert recv_key.gpg.verify(signed.data)
+
+
+def sign_and_encrypt_all(mails, sender_key, recv_key):
+    for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
     ):
         enc_msg = sender_key.gpg.encrypt(
             row_tuple.mail_body, [recv_key.fingerprint], sign=sender_key.fingerprint
         )
+        decrypted = recv_key.gpg.decrypt(enc_msg.data)
+        assert decrypted.data.decode() == row_tuple.mail_body
+        assert decrypted.valid  # verified signature
+
+
+def encrypt_all(mails, sender_key, recv_key):
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Encrypt only", total=len(mails)
+    ):
+        enc_msg = sender_key.gpg.encrypt(row_tuple.mail_body, [recv_key.fingerprint])
+        decrypted = recv_key.gpg.decrypt(enc_msg.data)
+        assert decrypted.data.decode() == row_tuple.mail_body
 
 
 def experiment():
@@ -164,6 +183,10 @@ def experiment():
     tracker.start()
 
     try:
+        track_energy_footprint(
+            tracker, "Encrypt", encrypt_all, mails, alice_key, bob_key
+        )
+
         track_energy_footprint(tracker, "Sign", sign_all, mails, alice_key, bob_key)
 
         track_energy_footprint(
