@@ -7,7 +7,7 @@ import logging
 
 import colorlog
 import pandas as pd
-import pgpy
+import gnupg
 import tqdm
 
 from codecarbon import OfflineEmissionsTracker
@@ -21,8 +21,10 @@ from pgpy.constants import (
 
 logger = colorlog.getLogger()
 
+# TODO: add a communication size estimation
 
-def setup_logger(log_level=logging.DEBUG):
+
+def setup_logger(log_level=logging.INFO):
     logger.handlers = []  # Reset handlers
     handler = colorlog.StreamHandler()
     handler.setFormatter(
@@ -90,73 +92,56 @@ def track_energy_footprint(
 
 
 def generate_keys():
-    alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
-    uid = pgpy.PGPUID.new("Alice", comment="Alice (sender)", email="alice@example.com")
-    alice_key.add_uid(
-        uid,
-        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
-        hashes=[
-            HashAlgorithm.SHA256,
-            HashAlgorithm.SHA384,
-            HashAlgorithm.SHA512,
-            HashAlgorithm.SHA224,
-        ],
-        ciphers=[
-            SymmetricKeyAlgorithm.AES256,
-            SymmetricKeyAlgorithm.AES192,
-            SymmetricKeyAlgorithm.AES128,
-        ],
-        compression=[
-            CompressionAlgorithm.ZLIB,
-            CompressionAlgorithm.BZ2,
-            CompressionAlgorithm.ZIP,
-            CompressionAlgorithm.Uncompressed,
-        ],
-    )
+    if not os.path.exists("temp"):
+        os.mkdir("temp")
+    gpg = gnupg.GPG(gnupghome="temp")
 
-    bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 4096)
-    uid = pgpy.PGPUID.new("Bob", comment="Bob (receiver)", email="bob@example.com")
-    bob_key.add_uid(
-        uid,
-        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
-        hashes=[
-            HashAlgorithm.SHA256,
-            HashAlgorithm.SHA384,
-            HashAlgorithm.SHA512,
-            HashAlgorithm.SHA224,
-        ],
-        ciphers=[
-            SymmetricKeyAlgorithm.AES256,
-            SymmetricKeyAlgorithm.AES192,
-            SymmetricKeyAlgorithm.AES128,
-        ],
-        compression=[
-            CompressionAlgorithm.ZLIB,
-            CompressionAlgorithm.BZ2,
-            CompressionAlgorithm.ZIP,
-            CompressionAlgorithm.Uncompressed,
-        ],
+    alice_key_config = gpg.gen_key_input(
+        key_type="RSA",
+        key_length=4096,
+        key_usage="sign encrypt",
+        name_real="Alice",
+        name_comment="Alice (sender)",
+        name_email="alice@example.com",
+        no_protection=True,
     )
+    alice_key = gpg.gen_key(alice_key_config)
+
+    bob_key_config = gpg.gen_key_input(
+        key_type="RSA",
+        key_length=4096,
+        key_usage="sign encrypt",
+        name_real="Bob",
+        name_comment="Bob (receiver)",
+        name_email="bob@example.com",
+        no_protection=True,
+    )
+    bob_key = gpg.gen_key(bob_key_config)
+
     return alice_key, bob_key
 
 
 def sign_all(mails, sender_key, _recv_key):
-
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
     ):
-        body = pgpy.PGPMessage.new(row_tuple.mail_body)
-        sender_key.sign(body)
+        signed_data = sender_key.gpg.sign(row_tuple.mail_body)
 
 
 def sign_and_encrypt_all(mails, sender_key, recv_key):
+    sender_keyid = None
+    for key_dict in sender_key.gpg.list_keys():
+        if key_dict["fingerprint"] == sender_key.fingerprint:
+            sender_keyid = key_dict["keyid"]
+            break
+    assert sender_keyid is not None
+
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
     ):
-        body = pgpy.PGPMessage.new(row_tuple.mail_body)
-        body |= sender_key.sign(body)  # Sign and append the signature
-
-        recv_key.encrypt(body)
+        enc_msg = sender_key.gpg.encrypt(
+            row_tuple.mail_body, [recv_key.fingerprint], sign=sender_key.fingerprint
+        )
 
 
 def experiment():

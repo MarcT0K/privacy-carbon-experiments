@@ -1,5 +1,8 @@
-*/*.log
-*/*.csv
+*.log
+*.csv
+*.bak
 
 # Enron mail directory
 sec-messaging/maildir
+
+sec-messaging/temp
