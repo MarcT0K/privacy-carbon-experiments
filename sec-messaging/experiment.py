@@ -22,7 +22,6 @@ from pgpy.constants import (
 logger = colorlog.getLogger()
 
 # TODO: add a communication size estimation
-# TODO: fix ECC support
 # TODO: add Signal (https://github.com/freedomofpress/signal-protocol)?
 
 
@@ -93,15 +92,20 @@ def track_energy_footprint(
     logger.warning(experiment_name + " ends...")
 
 
-def generate_keys(key_type="ECC"):
+def generate_keys(key_type):
+    # Key size: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     if key_type == "RSA":
         key_params = {"key_type": "RSA", "key_length": 3072}
     elif key_type == "ECC":
-        key_params = {"key_curve": "nistp384"}
+        key_params = {
+            "key_type": "ECDSA",
+            "key_curve": "nistp256",
+            "subkey_type": "ECDH",
+            "subkey_curve": "nistp256",
+        }
     else:
         raise NotImplementedError
 
-    # Key size: https://crypto.stackexchange.com/questions/76699/elliptic-curve-vs-rsa-key-length-comparison
     if not os.path.exists("temp"):
         os.mkdir("temp")
     gpg = gnupg.GPG(gnupghome="temp")
@@ -172,7 +176,8 @@ def experiment():
     assert len(mails) == 30109
 
     logger.warning("Generating cryptographic keys")
-    alice_key, bob_key = generate_keys()
+    alice_key_rsa, bob_key_rsa = generate_keys("RSA")
+    alice_key_ecc, bob_key_ecc = generate_keys("ECC")
 
     tracker = OfflineEmissionsTracker(
         measure_power_secs=5,
@@ -184,13 +189,34 @@ def experiment():
 
     try:
         track_energy_footprint(
-            tracker, "Encrypt", encrypt_all, mails, alice_key, bob_key
+            tracker, "Encrypt RSA", encrypt_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        track_energy_footprint(
+            tracker, "Encrypt ECC", encrypt_all, mails, alice_key_ecc, bob_key_ecc
         )
 
-        track_energy_footprint(tracker, "Sign", sign_all, mails, alice_key, bob_key)
+        track_energy_footprint(
+            tracker, "Sign RSA", sign_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        track_energy_footprint(
+            tracker, "Sign ECC", sign_all, mails, alice_key_ecc, bob_key_ecc
+        )
 
         track_energy_footprint(
-            tracker, "Sign+encrypt", sign_and_encrypt_all, mails, alice_key, bob_key
+            tracker,
+            "Sign+encrypt",
+            sign_and_encrypt_all,
+            mails,
+            alice_key_rsa,
+            bob_key_rsa,
+        )
+        track_energy_footprint(
+            tracker,
+            "Sign+encrypt",
+            sign_and_encrypt_all,
+            mails,
+            alice_key_ecc,
+            bob_key_ecc,
         )
     except Exception as err:
         logger.error("Error occured: " + str(err))
