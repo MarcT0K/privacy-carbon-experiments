@@ -21,7 +21,6 @@ from pgpy.constants import (
 
 logger = colorlog.getLogger()
 
-# TODO: add a communication size estimation
 # TODO: add Signal (https://github.com/freedomofpress/signal-protocol)?
 
 
@@ -139,14 +138,20 @@ def sign_all(mails, sender_key, recv_key):
             break
     assert sender_keyid is not None
 
+    communication_overhead = 0
+
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
     ):
         signed = sender_key.gpg.sign(row_tuple.mail_body, keyid=sender_keyid)
+        communication_overhead += len(signed.data) - len(row_tuple.mail_body.encode())
         assert recv_key.gpg.verify(signed.data)
+
+    logger.info(f"Communication overhead: {communication_overhead} bytes")
 
 
 def sign_and_encrypt_all(mails, sender_key, recv_key):
+    communication_overhead = 0
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
     ):
@@ -156,15 +161,21 @@ def sign_and_encrypt_all(mails, sender_key, recv_key):
         decrypted = recv_key.gpg.decrypt(enc_msg.data)
         assert decrypted.data.decode() == row_tuple.mail_body
         assert decrypted.valid  # verified signature
+        communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
+
+    logger.info(f"Communication overhead: {communication_overhead} bytes")
 
 
 def encrypt_all(mails, sender_key, recv_key):
+    communication_overhead = 0
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Encrypt only", total=len(mails)
     ):
         enc_msg = sender_key.gpg.encrypt(row_tuple.mail_body, [recv_key.fingerprint])
         decrypted = recv_key.gpg.decrypt(enc_msg.data)
         assert decrypted.data.decode() == row_tuple.mail_body
+        communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
+    logger.info(f"Communication overhead: {communication_overhead} bytes")
 
 
 def experiment():
