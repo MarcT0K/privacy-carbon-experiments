@@ -3,28 +3,28 @@
 #!/bin/bash
 set -e
 
-install_packages_with_package-manager() {
-	local packages = "$1";
+install_packages_with_package_manager() {
+	local packages = "$1"
 
 	if command -v apt &> /dev/null; then
 		echo "Detected apt (Debian/Ubuntu-based system)."
-		echo "Installing " + $packages + "."
+		echo "Installing $packages."
 		sudo apt install -y $packages
 	elif command -v dnf &> /dev/null; then
 		echo "Detected dnf (Fedora-based system)."
-		echo "Installing " + $packages + "."
+		echo "Installing $packages."
 		sudo dnf install -y $packages
 	elif command -v yum &> /dev/null; then
 		echo "Detected yum (CentOS/RHEL-based system)."
-		echo "Installing " + $packages + "."
+		echo "Installing $packages."
 		sudo yum install -y $packages
 	elif command -v pacman &> /dev/null; then
 		echo "Detected pacman (Arch-based system)."
-		echo "Installing " + $packages + "."
+		echo "Installing $packages."
 		sudo pacman -Sy $packages
 	elif command -v zypper &> /dev/null; then
 		echo "Detected zypper (openSUSE-based system)."
-		echo "Installing " + $packages + "."
+		echo "Installing $packages."
 		sudo zypper install -y $packages
 	else
 		echo "No supported package manager found on this system. (system unsupported)"
@@ -32,7 +32,7 @@ install_packages_with_package-manager() {
 	fi
 }
 
-enable_nginx_and_firewall() {
+enable_nginx_and_firewall() { #TODO: make ufw and firewalld check such that we do not hardcode by packagemanager
     	if command -v apt &> /dev/null; then
 		echo "Enabling Nginx and configuring firewall."
 		sudo systemctl enable nginx
@@ -73,44 +73,46 @@ enable_nginx_and_firewall() {
 }
 
 disable_SELinux() {
-	local output = getenforce;
+	local output=$(getenforce)
 	
-	if output == "Enforcing"; then
+	if [output == "Enforcing"]; then
 		setenforce 0
 }
 
+#ensure we are in root directory
+cd
+
 #install Nginx
-install_packages_with_package-manager "nginx"
+install_packages_with_package_manager "nginx"
 
 #enable Nginx & configure firewall (& reload firewall if necessary)
 enable_nginx_and_firewall
 
 #install pip
-install_packages_with_package-manager "python3-pip"
+install_packages_with_package_manager "python3-pip"
 
 #install Requests
 echo "Installing Requests library"
 pip3 install requests
 
 #install curl & 7z
-install_packages_with_package-manager "curl p7zip"
+install_packages_with_package_manager "curl p7zip"
 
 #download WikiMedia 2007 dump
+cd ~/Downloads
 echo "downloading WikiMedia 2007 dump"
-curl -s "https://dumps.wikimedia.org/other/static_html_dumps/April_2007/simple/wikipedia-simple-html.7z"
+curl -s -o "wikipedia-simple-html.7z" "https://dumps.wikimedia.org/other/static_html_dumps/April_2007/simple/wikipedia-simple-html.7z"
 
 #extract the WikiMedia 2007 dump
 7z x "wikipedia-simple-html.7z"
 
 #remove the .7z file
 rm "wikipedia-simple-html.7z"
+cd
 
-#TODO: change permissions of dump
+#change permissions of dump such that nginx can serve the dump
+sudo setfacl -R -m u:nginx:rx -m d:u:nginx:rx Downloads/wikipedia-simple-html
 disable_SELinux
-
-
-
-
 
 #install openssl
 install_packages_with_package_manager "openssl"
@@ -151,7 +153,6 @@ sudo chmod 600 "localhost.key"
 
 #create nginx config
 cd ".."
-local user_path = echo $HOME
 
 local ninx_config = 
 "events {}
@@ -159,35 +160,23 @@ local ninx_config =
 worker_processes auto;
 
 http {
-    ssl_session_cache   shared:SSL:10m;
-    ssl_session_timeout 10m;
-
     server {
         listen 80;
-        server_name localhost;
-
-        root "$user_path"/wikipedia-simple-html/simple;
-        index index.html;
-
-        location / {
-            try_files $uri $uri/ =404;
-        }
-    }
-
-    server {
         listen 443 ssl;
         server_name localhost;
 
-        root "$user_path"/wikipedia-simple-html/simple;
-        index index.html;
-
         ssl_certificate /etc/nginx/ssl/localhost.crt;
         ssl_certificate_key /etc/nginx/ssl/localhost.key;
-
-        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
+        root $HOME/Downloads/wikipedia-simple-html/simple;
+        index index.html;
+
         location / {
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
             try_files $uri $uri/ =404;
         }
     }
