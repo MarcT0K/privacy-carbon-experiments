@@ -87,8 +87,8 @@ install_packages_with_package_manager "python3-pip"
 echo "Installing Requests Python library"
 pip3 install requests
 
-# Install curl & 7z
-install_packages_with_package_manager "curl p7zip"
+# Install curl & 7z & httrack
+install_packages_with_package_manager "curl p7zip httrack"
 
 # Download Wikipedia 2007 dump
 navigate_downloads
@@ -107,6 +107,18 @@ sudo setfacl -R -m u:nginx:rx -m d:u:nginx:rx Downloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
 disable_SELinux
+
+# Download New York Times dump
+httrack "https://www.nytimes.com/" -O Downloads/nytimes -r2 --robots=0
+
+# Download GitHub Chromium-Project dump
+httrack "https://github.com/chromium/chromium" -O Downloads/github -r2 --robots=0
+
+# Download YouTube dump
+httrack "https://www.youtube.com" -O Downloads/youtube -r2 --robots=0
+
+# Download amazon dump
+httrack "https://www.amazon.nl/" -O Downloads/amazon -r2 --robots=0
 
 # Install OpenSSL
 install_packages_with_package_manager "openssl"
@@ -161,10 +173,37 @@ http {
         ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
-        root "$HOME/Downloads/wikipedia-simple-html/simple";  # $HOME will expand to the actual path
-        index index.html;
+        root $HOME/Downloads;
 
-        location / {
+        location /wikipedia-simple-html/simple {
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
+            try_files $uri $uri/ =404;
+        }
+
+        location /nytimes/www.nytimes.com {
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
+            try_files $uri $uri/ =404;
+        }
+
+        location /github/github.com {
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
+            try_files $uri $uri/ =404;
+        }
+
+        location /youtube/www.youtube.com {
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
+            try_files $uri $uri/ =404;
+        }
+
+        location /amazon/www.amazon.nl {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
