@@ -114,8 +114,8 @@ httrack "https://www.nytimes.com/" -O Downloads/nytimes -r2 --robots=0
 # Download GitHub Chromium-Project dump
 httrack "https://github.com/chromium/chromium" -O Downloads/github -r2 --robots=0
 
-# Download YouTube dump
-httrack "https://www.youtube.com" -O Downloads/youtube -r2 --robots=0
+# Download MDN docs dump
+httrack "https://developer.mozilla.org/en-US/docs/Learn" -O Downloads/mdn_learn -r2 --robots=0
 
 # Download amazon dump
 httrack "https://www.amazon.nl/" -O Downloads/amazon -r2 --robots=0
@@ -196,7 +196,7 @@ http {
             try_files $uri $uri/ =404;
         }
 
-        location /youtube/www.youtube.com {
+        location /mdn_learn/developer.mozilla.org {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;

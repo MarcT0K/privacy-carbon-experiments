@@ -34,7 +34,7 @@ base_url = "localhost"
 threads = 8
 
 #LIST OF ALL DUMPS
-dumps = ["wikipedia", "nytimes", "github", "youtube", "amazon"]
+dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
 
 #UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
 quantities_units = {"duration": "s", "emissions": "kgCO₂eq",
@@ -47,7 +47,7 @@ dumps_folder_dict = dict()
 dumps_folder_dict["wikipedia"] = f"{home_dir}/Downloads/wikipedia-simple-html/simple/"
 dumps_folder_dict["nytimes"] = f"{home_dir}/Downloads/nytimes/www.nytimes.com"
 dumps_folder_dict["github"] = f"{home_dir}/Downloads/github/github.com"
-dumps_folder_dict["youtube"] = f"{home_dir}/Downloads/youtube/www.youtube.com"
+dumps_folder_dict["mdn_learn"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
 dumps_folder_dict["amazon"] = f"{home_dir}/Downloads/amazon/www.amazon.nl"
 
 #NUMBER OF RANDOM FILES USED FROM DUMP
@@ -64,7 +64,7 @@ single_run = False
 
 #SPECIFY THE DUMP TO RUN THE EXPERIMENT ON (check dumps list for all valid dumps)
 #(Only applicable if single_run = True)
-dump_to_test = "wikipedia"
+dump_to_test = "mdn_learn"
 
 #---------------------------------------------------END OF VARIABLES---------------------------------------------------#
 
@@ -231,8 +231,10 @@ def generate_plots():
         ax.bar([i + bar_width for i in index], y_https, bar_width, color='g', label=f'HTTPS {quantity}')
 
         # Add labels, title, and legend
+        quantity_unit = f"({quantities_units[quantity.replace("_variance", "")]})²" if "variance" in quantity\
+            else quantities_units[quantity]
         ax.set_xlabel('Tests')
-        ax.set_ylabel(f'{quantity.capitalize()} ({quantities_units[quantity]})')
+        ax.set_ylabel(f'{quantity.capitalize()} ({quantity_unit})')
         ax.set_title(f'{quantity.capitalize()} of HTTP vs HTTPS')
         ax.set_xticks([i + bar_width / 2 for i in index])  # Adjust x-ticks to be between bars
         ax.set_xticklabels(x, rotation=45, ha='right')  # Set x-axis labels with rotation for readability
@@ -251,8 +253,16 @@ def generate_plots():
             else:
                 x_pos = i // 2 + bar_width
 
+            # Check if the value is smaller than 1e-6
+            if abs(value) < 1e-3:
+                # Use scientific notation
+                display_value = f"{value:.3e}"
+            else:
+                # Use regular floating-point format
+                display_value = f"{value:.3f}"
+
             # Put the annotation in the correct place
-            plt.text(x_pos, 1.01 * value, round(value, 6), ha='center', fontsize=6)
+            plt.text(x_pos, 1.01 * value, display_value, ha='center', fontsize=6)
 
         # Move the legend outside the plot area to avoid overlap with the bars
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.1)
@@ -281,17 +291,22 @@ def gather_results():
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
         writer.writerow(['', 'duration', 'emissions', 'emissions_rate', 'energy_consumed',
-                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy'])
+                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy', 'emissions_variance',
+                         'energy_consumed_variance', 'cpu_energy_variance', 'ram_energy_variance'])
         # Write the HTTP values row
         writer.writerow(['HTTP', df_http['duration'].mean(), df_http['emissions'].mean(),
                          df_http['emissions_rate'].mean(), df_http['energy_consumed'].mean(),
                          df_http['cpu_power'].mean(), df_http['cpu_energy'].mean(),
-                         df_http['ram_power'].mean(), df_http['ram_energy'].mean()])
+                         df_http['ram_power'].mean(), df_http['ram_energy'].mean(),
+                         df_http['emissions'].var(), df_http['energy_consumed'].var(),
+                         df_http['cpu_energy'].var(), df_http['ram_energy'].var()])
         # Write the HTTPS values row
         writer.writerow(['HTTPS', df_https['duration'].mean(), df_https['emissions'].mean(),
                          df_https['emissions_rate'].mean(), df_https['energy_consumed'].mean(),
                          df_https['cpu_power'].mean(), df_https['cpu_energy'].mean(),
-                         df_https['ram_power'].mean(), df_https['ram_energy'].mean()])
+                         df_https['ram_power'].mean(), df_https['ram_energy'].mean(),
+                         df_https['emissions'].var(), df_https['energy_consumed'].var(),
+                         df_https['cpu_energy'].var(), df_https['ram_energy'].var()])
 
     # Open the relative ratio (HTTPS vs HTTP) file
     with open (f'{project_path}/ratios_{dump_to_test}.csv', 'w', newline="") as file:
@@ -299,16 +314,22 @@ def gather_results():
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
         writer.writerow(['', 'duration', 'emissions', 'emissions_rate', 'energy_consumed',
-                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy'])
+                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy', 'emissions_variance',
+                         'energy_consumed_variance', 'cpu_energy_variance', 'ram_energy_variance'])
         # Write the relative ratios row
-        writer.writerow(['Relative Ratio (HTTPS vs HTTP)', df_https['duration'].mean() / df_http['duration'].mean(),
+        writer.writerow(['Relative Ratio (HTTPS vs HTTP)',
+                         df_https['duration'].mean() / df_http['duration'].mean(),
                          df_https['emissions'].mean() / df_http['emissions'].mean(),
                          df_https['emissions_rate'].mean() / df_http['emissions_rate'].mean(),
                          df_https['energy_consumed'].mean() / df_http['energy_consumed'].mean(),
                          df_https['cpu_power'].mean() / df_http['cpu_power'].mean(),
                          df_https['cpu_energy'].mean() / df_http['cpu_energy'].mean(),
                          df_https['ram_power'].mean() / df_http['ram_power'].mean(),
-                         df_https['ram_energy'].mean() / df_http['ram_energy'].mean()
+                         df_https['ram_energy'].mean() / df_http['ram_energy'].mean(),
+                         df_https['emissions'].var() / df_http['emissions'].var(),
+                         df_https['energy_consumed'].var() / df_http['energy_consumed'].var(),
+                         df_https['cpu_energy'].var() / df_http['cpu_energy'].var(),
+                         df_https['ram_energy'].var() / df_http['ram_energy'].var()
                          ])
 
 
@@ -332,8 +353,10 @@ if __name__ == "__main__":
 
         # Wait until raw_emissions_{dump}.csv is generated (if needed)
         print(f"{os.linesep}Waiting for {project_path}/raw_emissions_{dump_to_test}.csv to be generated...")
-        while not Path(f"{project_path}/raw_emissions_{dump_to_test}.csv").exists():
+        counter = 0
+        while not Path(f"{project_path}/raw_emissions_{dump_to_test}.csv").exists() and counter < 50:
             sleep(0.1)
+            counter += 1
 
         # Put the relevant results into the results_{dump_to_test}.csv file
         print(f"{os.linesep}Writing relevant results to results_{dump_to_test}.csv...")
@@ -358,8 +381,10 @@ if __name__ == "__main__":
 
             # Wait until raw_emissions_{dump}.csv is generated (if needed)
             print(f"{os.linesep}Waiting for raw_emissions_{dump_to_test}.csv to be generated...")
-            while not Path(f"{project_path}/raw_emissions_{dump_to_test}.csv").exists():
+            counter = 0
+            while not Path(f"{project_path}/raw_emissions_{dump_to_test}.csv").exists() and counter < 50:
                 sleep(0.1)
+                counter += 1
 
             # Put the relevant results into the results_{dump_to_test}.csv file
             print(f"{os.linesep}Writing relevant results to results_{dump_to_test}.csv...")
