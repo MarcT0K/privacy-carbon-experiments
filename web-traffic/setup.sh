@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+USER_NAME=${SUDO_USER:-$(whoami)}
+USER_DIR=$(eval echo "~$USER_NAME")
+
 # Function to install packages with the appropriate package manager
 install_packages_with_package_manager() {
     local packages="$1"
@@ -66,13 +69,12 @@ disable_SELinux() {
 
 # Function to navigate to Downloads folder (and create the folder first if non-existent)
 navigate_downloads() {
-	mkdir -p "$HOME/Downloads"	
-	cd "$HOME/Downloads"
-	fi
+	mkdir -p "$USER_DIR/Downloads"	
+	cd "$USER_DIR/Downloads"
 }
 
 # Ensure we are in the home directory
-cd "$HOME"
+cd "$USER_DIR"
 
 # Install Nginx
 install_packages_with_package_manager "nginx"
@@ -83,10 +85,6 @@ enable_nginx_and_firewall
 # Install pip
 install_packages_with_package_manager "python3-pip"
 
-# Install Requests
-echo "Installing Requests Python library"
-pip3 install requests
-
 # Install curl & 7z & httrack
 install_packages_with_package_manager "curl p7zip httrack"
 
@@ -96,28 +94,35 @@ echo "Downloading Wikipedia 2007 dump"
 curl -s -o "wikipedia-simple-html.7z" "https://dumps.wikimedia.org/other/static_html_dumps/April_2007/simple/wikipedia-simple-html.7z"
 
 # Extract the Wikipedia 2007 dump
-7z x "wikipedia-simple-html.7z"
+mkdir -p ./wikipedia-simple-html
+sudo 7za x "wikipedia-simple-html.7z" -o./wikipedia-simple-html
 
 # Remove the .7z file
 rm "wikipedia-simple-html.7z"
-cd "$HOME"
+cd "$USER_DIR"
 
 # Change permissions of the Wikipedia dump so Nginx can access it
+echo "Changing Wikipedia folder permissions"
 sudo setfacl -R -m u:nginx:rx -m d:u:nginx:rx Downloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
+echo "disabling SELinux temporarily if applicable"
 disable_SELinux
 
 # Download New York Times dump
+echo "Downloading New York Times dump"
 httrack "https://www.nytimes.com/" -O Downloads/nytimes -r2 --robots=0
 
 # Download GitHub Chromium-Project dump
+echo "Downloading GitHub Chromium-Project dump"
 httrack "https://github.com/chromium/chromium" -O Downloads/github -r2 --robots=0
 
 # Download MDN docs dump
+echo "Downloading MDN docs dump"
 httrack "https://developer.mozilla.org/en-US/docs/Learn" -O Downloads/mdn_learn -r2 --robots=0
 
-# Download amazon dump
+# Download amazon.nl dump
+echo "Downloading amazon.nl dump"
 httrack "https://www.amazon.nl/" -O Downloads/amazon -r2 --robots=0
 
 # Install OpenSSL
@@ -129,6 +134,7 @@ sudo mkdir -p ssl
 cd ./ssl
 
 # Create localhost certificate config
+echo "Creating localhost TLS certificate configuration"
 cat > "localhost.conf" << 'EOF'
 [ req ]
 default_bits       = 2048
@@ -148,16 +154,20 @@ DNS.1 = localhost
 EOF
 
 # Generate private key
+echo "Generating private key"
 openssl genrsa -out "localhost.key" 2048
 
 # Generate certificate
+echo "Generating certificate"
 openssl req -x509 -new -nodes -key "localhost.key" -sha256 -days 365 -out "localhost.crt" -config "localhost.conf"
 
 # Change permissions of private key
+echo "Changing private key permissions"
 sudo chmod 600 "localhost.key"
 
 # Create Nginx config
-cat > /etc/nginx/nginx.conf << "EOF"
+echo "Creating Nginx config file"
+cat > /etc/nginx/nginx.conf << EOF
 events {}
 
 worker_processes auto;
@@ -173,46 +183,63 @@ http {
         ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
-        root $HOME/Downloads;
+        root $USER_DIR/Downloads;
 
         location /wikipedia-simple-html/simple {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
 
         location /nytimes/www.nytimes.com {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
 
         location /github/github.com {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
 
         location /mdn_learn/developer.mozilla.org {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
 
         location /amazon/www.amazon.nl {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
     }
 }
 EOF
 
 # Restart Nginx server
+echo "Restarting Nginx server to load new changes"
 sudo systemctl restart nginx
 
+# Install Anaconda
+echo "Installing Anaconda"
+install_packages_with_package_manager "conda"
+
+# Set up the Anaconda environment
+echo "Setting up Anaconda environment"
+sudo conda create -n experiment
+conda activate experiment
+conda install pandas matplotlib requests -y
+pip install codecarbon
+
+# Get the Anaconda python path
+PYTHON_PATH=$(which python)
+
+# Run the experiment (uncomment the line below and input correct path to experiment.py)
+# $PYTHON_PATH path/to/the/experiment/experiment.py
