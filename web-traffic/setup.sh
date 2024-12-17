@@ -1,8 +1,26 @@
 #!/bin/bash
 set -e
+#WARNING: THIS SCRIPT REQUIRES ROOT (SUDO)
+
+#----------------------------------------START OF VARIABLES----------------------------------------
 
 USER_NAME=${SUDO_USER:-$(whoami)}
 USER_DIR=$(eval echo "~$USER_NAME")
+
+#-----------------------------------------END OF VARIABLES-----------------------------------------
+
+
+
+
+#----------------------------------------START OF FUNCTIONS----------------------------------------
+
+# Function to check for root privileges (needed for package installation etc.)
+check_root() {
+	if [ ${EUID} -ne 0 ]; then
+	    echo -e "Root privileges were not granted.\nThis script needs root in order to run! Exiting."
+	    exit 1
+	fi
+}
 
 # Function to install packages with the appropriate package manager
 install_packages_with_package_manager() {
@@ -72,6 +90,16 @@ navigate_downloads() {
 	mkdir -p "$USER_DIR/Downloads"	
 	cd "$USER_DIR/Downloads"
 }
+
+#-----------------------------------------END OF FUNCTIONS-----------------------------------------
+
+
+
+
+#------------------------------------------START OF SCRIPT------------------------------------------
+
+# Check for root privileges
+check_root
 
 # Ensure we are in the home directory
 cd "$USER_DIR"
@@ -243,3 +271,5 @@ PYTHON_PATH=$(which python)
 
 # Run the experiment (uncomment the line below and input correct path to experiment.py)
 # $PYTHON_PATH path/to/the/experiment/experiment.py
+
+#-------------------------------------------END OF SCRIPT-------------------------------------------
