@@ -1,11 +1,16 @@
 #!/bin/bash
-set -e
+#set -e
 #WARNING: THIS SCRIPT REQUIRES ROOT (SUDO)
 
 #----------------------------------------START OF VARIABLES----------------------------------------
-
+#Get the name of the user running this shell script
 USER_NAME=${SUDO_USER:-$(whoami)}
+
+#Get the home directory of the user
 USER_DIR=$(eval echo "~$USER_NAME")
+
+# Fetch the user running nginx from the nginx.conf file
+NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;//')
 
 #-----------------------------------------END OF VARIABLES-----------------------------------------
 
@@ -77,11 +82,21 @@ enable_nginx_and_firewall() {
 
 # Function to disable SELinux if enforcing
 disable_SELinux() {
+    # Check if the 'getenforce' command is available
+    if ! command -v getenforce &> /dev/null; then
+        echo "SELinux is not installed or not available on this system."
+        # Do nothing if SELinux is not present
+        return 0
+    fi
+
+    # Get the current SELinux status
     local output
     output=$(getenforce)
 
+    # Disable SELinux if it is enforcing
     if [ "$output" == "Enforcing" ]; then
         sudo setenforce 0
+        echo "SELinux has been set to Permissive mode."
     fi
 }
 
@@ -131,7 +146,7 @@ cd "$USER_DIR"
 
 # Change permissions of the Wikipedia dump so Nginx can access it
 echo "Changing Wikipedia folder permissions"
-sudo setfacl -R -m u:nginx:rx -m d:u:nginx:rx Downloads/wikipedia-simple-html
+sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x Downloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
 echo "disabling SELinux temporarily if applicable"
@@ -257,7 +272,8 @@ sudo systemctl restart nginx
 
 # Install Anaconda
 echo "Installing Anaconda"
-install_packages_with_package_manager "conda"
+wget -P Downloads https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Downloads/Miniconda3-latest-Linux-x86_64.sh -b
 
 # Set up the Anaconda environment
 echo "Setting up Anaconda environment"
