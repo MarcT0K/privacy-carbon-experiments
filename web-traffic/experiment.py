@@ -1,5 +1,6 @@
 import itertools
 import random
+import math
 import warnings
 import pandas as pd
 import csv
@@ -236,22 +237,19 @@ def gather_results():
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
         writer.writerow(['', 'duration', 'emissions', 'emissions_rate', 'energy_consumed',
-                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy', 'emissions_variance',
-                         'energy_consumed_variance', 'cpu_energy_variance', 'ram_energy_variance'])
+                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy'])
         # Write the HTTP values row
         writer.writerow(['HTTP', df_http['duration'].mean(), df_http['emissions'].mean(),
                          df_http['emissions_rate'].mean(), df_http['energy_consumed'].mean(),
                          df_http['cpu_power'].mean(), df_http['cpu_energy'].mean(),
-                         df_http['ram_power'].mean(), df_http['ram_energy'].mean(),
-                         df_http['emissions'].var(), df_http['energy_consumed'].var(),
-                         df_http['cpu_energy'].var(), df_http['ram_energy'].var()])
+                         df_http['ram_power'].mean(), df_http['ram_energy'].mean()
+                         ])
         # Write the HTTPS values row
         writer.writerow(['HTTPS', df_https['duration'].mean(), df_https['emissions'].mean(),
                          df_https['emissions_rate'].mean(), df_https['energy_consumed'].mean(),
                          df_https['cpu_power'].mean(), df_https['cpu_energy'].mean(),
-                         df_https['ram_power'].mean(), df_https['ram_energy'].mean(),
-                         df_https['emissions'].var(), df_https['energy_consumed'].var(),
-                         df_https['cpu_energy'].var(), df_https['ram_energy'].var()])
+                         df_https['ram_power'].mean(), df_https['ram_energy'].mean()
+                         ])
 
     # Open the relative ratio (HTTPS vs HTTP) file
     with open (f'{project_path}/ratios_{dump_to_test}.csv', 'w', newline="") as file:
@@ -259,8 +257,7 @@ def gather_results():
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
         writer.writerow(['', 'duration', 'emissions', 'emissions_rate', 'energy_consumed',
-                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy', 'emissions_variance',
-                         'energy_consumed_variance', 'cpu_energy_variance', 'ram_energy_variance'])
+                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy'])
         # Write the relative ratios row
         writer.writerow(['Relative Ratio (HTTPS vs HTTP)',
                          df_https['duration'].mean() / df_http['duration'].mean(),
@@ -270,15 +267,11 @@ def gather_results():
                          df_https['cpu_power'].mean() / df_http['cpu_power'].mean(),
                          df_https['cpu_energy'].mean() / df_http['cpu_energy'].mean(),
                          df_https['ram_power'].mean() / df_http['ram_power'].mean(),
-                         df_https['ram_energy'].mean() / df_http['ram_energy'].mean(),
-                         df_https['emissions'].var() / df_http['emissions'].var(),
-                         df_https['energy_consumed'].var() / df_http['energy_consumed'].var(),
-                         df_https['cpu_energy'].var() / df_http['cpu_energy'].var(),
-                         df_https['ram_energy'].var() / df_http['ram_energy'].var()
+                         df_https['ram_energy'].mean() / df_http['ram_energy'].mean()
                          ])
 
 # Generates a scatter plot showcasing file size versus emissions per protocol
-def generate_scatter_plot():
+def generate_file_size_plot():
     # Load data
     http_emissions = pd.read_csv(f"{project_path}/scatter_data_http.csv")
     https_emissions = pd.read_csv(f"{project_path}/scatter_data_https.csv")
@@ -299,7 +292,6 @@ def generate_scatter_plot():
     })
 
     # Extract relevant columns for plotting
-    # Assuming "file_size" and "emissions" are the relevant columns
     x_http = http_data["size"]
     y_http = http_data["emissions"]
 
@@ -322,22 +314,31 @@ def generate_scatter_plot():
             linewidth=0.8,
         )
 
-    # Labeling
-    plt.title("Scatter Plot of File Size vs Emissions", fontsize=14)
-    plt.xlabel("File Size (bytes)", fontsize=12)
-    plt.ylabel("Emissions (kgCO₂eq)", fontsize=12)
-    plt.legend()
+    # Labeling with increased font sizes
+    plt.title("Scatter Plot of File Size vs Emissions", fontsize=16)
+    plt.xlabel("File Size (bytes)", fontsize=14)
+    plt.ylabel("Emissions (kgCO₂eq)", fontsize=14)
+
+    # Adjust legend with larger font size
+    plt.legend(fontsize=12)
+
+    # Grid for better readability
     plt.grid(True, linestyle='--', alpha=0.6)
+
+    # Adjust tick labels font size
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
 
     plt.tight_layout()
 
     # Delete the plot if it already exists
-    plot_path = f"{project_path}/scatter_plot.png"
+    plot_path = f"{project_path}/scatter_plot.svg"
     if os.path.exists(plot_path):
         os.remove(plot_path)
 
     # Save the new plot
-    plt.savefig(plot_path, bbox_inches='tight')
+    plt.savefig(plot_path, format='svg', bbox_inches='tight')
+
 
 # Generates bar plots showcasing a result metric per dump for all dumps combined
 def generate_bar_plots():
@@ -362,41 +363,52 @@ def generate_bar_plots():
 
     # Iterate over each quantity and generate the plots
     for quantity in quantities:
-        # Create lists for the labels, HTTP values and HTTPS values
+        # Create lists for the labels, HTTP values, HTTPS values, and variances
         x = []
         y_http = []
         y_https = []
+        http_variances = []
+        https_variances = []
 
         # Extract data for each quantity
         for file in files:
-            with (open(file, 'r') as existingFile):
+            with open(file, 'r') as existingFile:
                 reader = csv.reader(existingFile, quoting=csv.QUOTE_MINIMAL)
                 # Skip the header
-                next(reader, None)
+                header = next(reader, None)
 
                 # Initialize variables for the quantity data
-                http_value = None
-                https_value = None
+                http_values = []
+                https_values = []
 
-                # Find HTTP and HTTPS values for the current quantity
+                # Collect HTTP and HTTPS values for the current quantity
                 for row in reader:
                     if row[0] == 'HTTP':
-                        # (Adjust column index based on quantity)
-                        http_value = float(
-                            row[quantities.index(quantity) + 1])
+                        http_values.append(float(row[quantities.index(quantity) + 1]))
                     elif row[0] == 'HTTPS':
-                        # (Adjust column index based on quantity)
-                        https_value = float(row[quantities.index(quantity) + 1])
+                        https_values.append(float(row[quantities.index(quantity) + 1]))
 
                 # Only append if both HTTP and HTTPS data are found for the file
-                if http_value is not None and https_value is not None:
+                if http_values and https_values:
+                    # Calculate mean and variance for HTTP and HTTPS
+                    http_mean = sum(http_values) / len(http_values)
+                    https_mean = sum(https_values) / len(https_values)
+                    http_variance = sum((x - http_mean) ** 2 for x in http_values) / len(http_values)
+                    https_variance = sum((x - https_mean) ** 2 for x in https_values) / len(https_values)
+
                     # Use the file name (without extension) as the label
-                    test_name = file.replace(f"{project_path}/results_", ""
-                                             ).replace('.csv', '').capitalize()
+                    test_name = file.replace(f"{project_path}/results_", "").replace('.csv', '').capitalize()
+
                     # Add the relevant values to the lists
                     x.append(test_name)
-                    y_http.append(http_value)
-                    y_https.append(https_value)
+                    y_http.append(http_mean)
+                    y_https.append(https_mean)
+                    http_variances.append(http_variance)
+                    https_variances.append(https_variance)
+
+        # Compute standard deviations from variances
+        http_std_devs = [math.sqrt(var) for var in http_variances]
+        https_std_devs = [math.sqrt(var) for var in https_variances]
 
         # Plot grouped bar chart for the current quantity
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -405,23 +417,24 @@ def generate_bar_plots():
         bar_width = 0.35  # Width of each bar
         index = range(len(x))
 
-        # Create bars for HTTP and HTTPS (next to each other)
-        ax.bar(index, y_http, bar_width, color='b', label=f'HTTP {quantity}')
-        ax.bar([i + bar_width for i in index], y_https, bar_width, color='g', label=f'HTTPS {quantity}')
+        # Create bars for HTTP and HTTPS (with error bars for variances)
+        ax.bar(index, y_http, bar_width, color='b', label=f'HTTP {quantity}', yerr=http_std_devs,
+               capsize=10, ecolor='darkred')
+        ax.bar([i + bar_width for i in index], y_https, bar_width, color='g', label=f'HTTPS {quantity}',
+               yerr=https_std_devs, capsize=10, ecolor='darkred')
 
-        # Add labels, title, and legend
-        quantity_unit = f"({quantities_units[quantity.replace("_variance", "")]})²" if "variance" in quantity\
-            else quantities_units[quantity]
-        ax.set_xlabel('Tests')
-        ax.set_ylabel(f'{quantity.capitalize()} ({quantity_unit})')
-        ax.set_title(f'{quantity.capitalize()} of HTTP vs HTTPS')
+        # Add labels, title, and legend with increased font sizes
+        quantity_unit = quantities_units[quantity]
+        ax.set_xlabel('Tests', fontsize=14)
+        ax.set_ylabel(f'{quantity.capitalize()} ({quantity_unit})', fontsize=14)
+        ax.set_title(f'{quantity.capitalize()} of HTTP vs HTTPS', fontsize=16)
         ax.set_xticks([i + bar_width / 2 for i in index])  # Adjust x-ticks to be between bars
-        ax.set_xticklabels(x, rotation=45, ha='right')  # Set x-axis labels with rotation for readability
+        ax.set_xticklabels(x, rotation=45, ha='right', fontsize=12)  # Set x-axis labels with rotation for readability
 
         # Create a list containing all HTTP and HTTPS values (alternating between HTTP and HTTPS)
         all_values = list(itertools.chain(*zip(y_http, y_https)))
 
-        # Annotate each bar
+        # Annotate each bar with increased font size
         for i, value in enumerate(all_values):
             # Determine the x position of the text
             # HTTP value
@@ -435,24 +448,29 @@ def generate_bar_plots():
             # Check if the value is smaller than 1e-6
             if abs(value) < 1e-3:
                 # Use scientific notation
-                display_value = f"{value:.3e}"
+                display_value = f"{value:.2e}"
             else:
                 # Use regular floating-point format
-                display_value = f"{value:.3f}"
+                display_value = f"{value:.2f}"
 
             # Put the annotation in the correct place
-            plt.text(x_pos, 1.01 * value, display_value, ha='center', fontsize=6)
+            plt.text(x_pos, 1.01 * value, display_value, ha='center', fontsize=10)
 
-        # Move the legend outside the plot area to avoid overlap with the bars
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.1)
+        # Move the legend to the lower right with increased font size
+        ax.legend(
+            loc='lower right',
+            bbox_to_anchor=(1, -0.25),  # Adjust legend position to align with the title
+            borderaxespad=0.1,
+            fontsize=12
+        )
 
         # Delete the plot if it already exists
-        plot_path = f"{project_path}/{quantity}_plot.png"
+        plot_path = f"{project_path}/{quantity}_plot.svg"
         if os.path.exists(plot_path):
             os.remove(plot_path)
 
         # Save the new plot
-        plt.savefig(plot_path, bbox_inches='tight')
+        plt.savefig(plot_path, format='svg', bbox_inches='tight')
 
 #---------------------------------------------------END OF FUNCTIONS---------------------------------------------------#
 
@@ -507,6 +525,7 @@ if __name__ == "__main__":
     generate_bar_plots()
 
     # Run the file size experiment
+    print(f"{os.linesep}Starting the file size experiment...")
     file_size_experiment()
 
     # Wait until every scatter_data file is generated
@@ -520,10 +539,9 @@ if __name__ == "__main__":
 
     # Generate the scatter plot showcasing file size versus emissions
     print(f"{os.linesep}Generating scatter plot showcasing file size versus emissions...")
-    generate_scatter_plot()
+    generate_file_size_plot()
 
     # End of the experiment script
     print(f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}")
 
 #----------------------------------------------------END OF SCRIPT-----------------------------------------------------#
-
