@@ -106,6 +106,26 @@ navigate_downloads() {
 	cd "$USER_DIR/Downloads"
 }
 
+# Function to make anaconda be recognized by the system
+init_anaconda() {
+	# Define the path to Miniconda installation
+	MINICONDA_PATH="$USER_DIR/Downloads/miniconda3"
+	
+	# The shell configuration file (change if using a different shell, e.g., ~/.zshrc for Zsh)
+	SHELL_CONFIG="$USER_DIR/.bashrc"
+	
+	# Check if the export line already exists, to avoid duplicates
+	if ! grep -q "miniconda3/bin" "$SHELL_CONFIG"; then
+	    echo "export PATH=\"$MINICONDA_PATH/bin:\$PATH\"" >> "$SHELL_CONFIG"
+	    echo "Miniconda path has been added to $SHELL_CONFIG"
+	else
+	    echo "Miniconda path already exists in $SHELL_CONFIG"
+	fi
+	
+	# Reload the configuration to apply the changes
+	source "$SHELL_CONFIG"
+}
+
 #-----------------------------------------END OF FUNCTIONS-----------------------------------------
 
 
@@ -274,6 +294,10 @@ sudo systemctl restart nginx
 echo "Installing Anaconda"
 wget -P Downloads https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Downloads/Miniconda3-latest-Linux-x86_64.sh -b
+
+# Make Anaconda be recognized by the system
+echo "Initializing Anaconda"
+init_anaconda
 
 # Set up the Anaconda environment
 echo "Setting up Anaconda environment"
