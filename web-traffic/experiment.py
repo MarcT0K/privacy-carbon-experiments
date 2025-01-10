@@ -237,19 +237,22 @@ def gather_results():
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
         writer.writerow(['', 'duration', 'emissions', 'emissions_rate', 'energy_consumed',
-                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy'])
+                         'cpu_power', 'cpu_energy', 'ram_power', 'ram_energy', 'emissions_variance',
+                         'emissions_rate_variance', 'energy_consumed_variance'])
         # Write the HTTP values row
         writer.writerow(['HTTP', df_http['duration'].mean(), df_http['emissions'].mean(),
                          df_http['emissions_rate'].mean(), df_http['energy_consumed'].mean(),
                          df_http['cpu_power'].mean(), df_http['cpu_energy'].mean(),
-                         df_http['ram_power'].mean(), df_http['ram_energy'].mean()
-                         ])
+                         df_http['ram_power'].mean(), df_http['ram_energy'].mean(),
+                         df_http['emissions'].var(), df_http['emissions_rate'].var(),
+                         df_http['energy_consumed'].var()])
         # Write the HTTPS values row
         writer.writerow(['HTTPS', df_https['duration'].mean(), df_https['emissions'].mean(),
                          df_https['emissions_rate'].mean(), df_https['energy_consumed'].mean(),
                          df_https['cpu_power'].mean(), df_https['cpu_energy'].mean(),
-                         df_https['ram_power'].mean(), df_https['ram_energy'].mean()
-                         ])
+                         df_https['ram_power'].mean(), df_https['ram_energy'].mean(),
+                         df_https['emissions'].var(), df_https['emissions_rate'].var(),
+                         df_https['energy_consumed'].var()])
 
     # Open the relative ratio (HTTPS vs HTTP) file
     with open (f'{project_path}/ratios_{dump_to_test}.csv', 'w', newline="") as file:
@@ -545,3 +548,4 @@ if __name__ == "__main__":
     print(f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}")
 
 #----------------------------------------------------END OF SCRIPT-----------------------------------------------------#
+
