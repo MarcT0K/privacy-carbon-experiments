@@ -193,9 +193,36 @@ def file_size_experiment():
     for root, _, files in os.walk(dumps_folder_dict.get(dump_to_test)):
         for file in files:
             # Add the file to the all_files list
-            all_files.append(os.path.join(root, file))
+            file_path = os.path.join(root, file)
+            # Include file size as a tuple (path, size)
+            all_files.append((file_path, os.path.getsize(file_path)))
 
-    selected_files = random.sample(all_files, num_files)
+    # Create a DataFrame
+    files_df = pd.DataFrame(all_files, columns=["file_path", "file_size"])
+
+    # Set the number of bins
+    num_bins = 5
+    # Number of files to select from each bin
+    num_files_per_bin = 10
+    # Set the total number of files to select (same as number_files)
+    total_files_to_select = num_bins * num_files_per_bin
+
+    # Create bins based on file sizes
+    files_df["size_bin"] = pd.cut(files_df["file_size"], bins=num_bins)
+
+    # Randomly select files from each bin
+    selected_files = []
+    for _, bin_group in files_df.groupby("size_bin"):
+        if len(bin_group) < num_files_per_bin:
+            # If there are fewer files in the bin than needed, take all of them
+            selected_files.extend(bin_group["file_path"].tolist())
+        else:
+            # Otherwise, randomly sample the required number of files
+            selected_files.extend(bin_group.sample(n=num_files_per_bin)["file_path"].tolist())
+
+    # If more files are selected than needed, truncate the list
+    if len(selected_files) > total_files_to_select:
+        selected_files = random.sample(selected_files, total_files_to_select)
 
     for protocol in ["http", "https"]:
         # Create a CodeCarbon offline tracker
