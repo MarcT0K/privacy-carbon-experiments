@@ -32,9 +32,6 @@ home_dir = os.path.expanduser(f"~{user}")
 #SERVER URL
 base_url = "localhost"
 
-#AMOUNT OF THREADS
-threads = 8
-
 #LIST OF ALL DUMPS
 dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
 
@@ -52,6 +49,9 @@ dumps_folder_dict["github"] = f"{home_dir}/Downloads/github/github.com"
 dumps_folder_dict["mdn_learn"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
 dumps_folder_dict["amazon"] = f"{home_dir}/Downloads/amazon/www.amazon.nl"
 
+#AMOUNT OF THREADS
+threads = 8
+
 #NUMBER OF RANDOM FILES USED FROM DUMP
 num_files = 50
 
@@ -64,6 +64,9 @@ repeat_factor = 10
 #SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
 
+#FETCH SIZES TO BE TESTED IN FETCH SIZES EXPERIMENT
+fetch_sizes = [1, 10, 100, 1000, 5000, 10000]
+
 #---------------------------------------------------END OF VARIABLES---------------------------------------------------#
 
 
@@ -71,13 +74,13 @@ dump_to_test = ""
 
 #--------------------------------------------------START OF FUNCTIONS--------------------------------------------------#
 
-# Removes all the raw_emissions_{dump_to_test}.csv files
+# Removes all the old results files
 def remove_old_results():
     # Walk through the directory and its subfolders
     for root, _, files in os.walk(project_path):
         for file in files:
-            # Check if the file is a raw_emissions_{dump_to_test}.csv or scatter_data file
-            if f"raw_emissions_{dump_to_test}" in file or "scatter_data" in file:
+            # Check if the file is a raw_emissions_{dump_to_test}.csv, file_size_data file or fetch_sizes_data file
+            if f"raw_emissions_{dump_to_test}" in file or "file_size_data" in file or "fetch_sizes_data" in file:
                 # Store the complete file path
                 file_path = os.path.join(root, file)
 
@@ -142,7 +145,7 @@ def fetch(protocol, file):
 
     return response
 
-# Performs the actual experiment
+# Performs the main experiment
 def main_experiment():
     # Suppress warnings from pandas used in CodeCarbon as they are irrelevant
     warnings.filterwarnings('ignore', category=FutureWarning)
@@ -180,7 +183,7 @@ def main_experiment():
         except KeyboardInterrupt:
             print("Experiment interrupted by user...")
 
-
+# Performs the file size experiment
 def file_size_experiment():
     global dump_to_test
     dump_to_test = "wikipedia"
@@ -199,12 +202,12 @@ def file_size_experiment():
         tracker = OfflineEmissionsTracker(
             measure_power_secs=1,
             country_iso_code="NLD",
-            output_file=f"{project_path}/scatter_data_{protocol}.csv",
+            output_file=f"{project_path}/file_size_data_{protocol}.csv",
             log_level="error"
         )
 
         # Open the relevant results file
-        with open(f'{project_path}/scatter_data_sizes_{protocol}.csv', 'w', newline="") as output_file:
+        with open(f'{project_path}/file_size_data_sizes_{protocol}.csv', 'w', newline="") as output_file:
             # Create a writer for the file
             writer = csv.writer(output_file, quoting=csv.QUOTE_MINIMAL)
             writer.writerow(['size'])
@@ -220,6 +223,34 @@ def file_size_experiment():
                 tracker.stop()
 
                 writer.writerow([os.path.getsize(file)])
+
+
+# Performs the fetch size experiment
+def fetch_sizes_experiment():
+    global dump_to_test
+    dump_to_test = "wikipedia"
+    selected_file = f"{dumps_folder_dict.get(dump_to_test)}/index.html"
+
+    for protocol in ["http", "https"]:
+        # Create a CodeCarbon offline tracker
+        tracker = OfflineEmissionsTracker(
+            measure_power_secs=1,
+            country_iso_code="NLD",
+            output_file=f"{project_path}/fetch_sizes_data_{protocol}.csv",
+            log_level="error"
+        )
+
+        for i in range(len(fetch_sizes)):
+            # Start the tracker before fetching
+            tracker.start()
+
+            for j in range(fetch_sizes[i]):
+                # Fetch the file using the specified protocol
+                fetch(protocol, selected_file[0])
+
+            # Stop the tracker after the fetches are complete
+            tracker.stop()
+
 
 # Fetches the results from raw_emissions_{dump_to_test}.csv and generates both a results and ratios csv file
 def gather_results():
@@ -273,75 +304,6 @@ def gather_results():
                          df_https['ram_energy'].mean() / df_http['ram_energy'].mean()
                          ])
 
-# Generates a scatter plot showcasing file size versus emissions per protocol
-def generate_file_size_plot():
-    # Load data
-    http_emissions = pd.read_csv(f"{project_path}/scatter_data_http.csv")
-    https_emissions = pd.read_csv(f"{project_path}/scatter_data_https.csv")
-
-    # Assuming file size data is in a separate file and corresponds to HTTP and HTTPS
-    file_sizes_http = pd.read_csv(f"{project_path}/scatter_data_sizes_http.csv")
-    file_sizes_https = pd.read_csv(f"{project_path}/scatter_data_sizes_https.csv")
-
-    # Assuming emissions and file size data are row-aligned
-    http_data = pd.DataFrame({
-        "size": file_sizes_http["size"],  # Replace 'file_size' with the actual column name
-        "emissions": http_emissions["emissions"]  # Replace 'emissions' with the actual column name
-    })
-
-    https_data = pd.DataFrame({
-        "size": file_sizes_https["size"],  # Replace 'file_size' with the actual column name
-        "emissions": https_emissions["emissions"]  # Replace 'emissions' with the actual column name
-    })
-
-    # Extract relevant columns for plotting
-    x_http = http_data["size"]
-    y_http = http_data["emissions"]
-
-    x_https = https_data["size"]
-    y_https = https_data["emissions"]
-
-    # Create scatter plot
-    plt.figure(figsize=(10, 6))
-
-    plt.scatter(x_http, y_http, color="blue", label="HTTP", alpha=0.7)
-    plt.scatter(x_https, y_https, color="green", label="HTTPS", alpha=0.7)
-
-    # Draw lines connecting HTTP and HTTPS
-    for i in range(len(http_data)):
-        plt.plot(
-            [http_data["size"][i], https_data["size"][i]],  # Same x (file size)
-            [http_data["emissions"][i], https_data["emissions"][i]],  # HTTP to HTTPS
-            color="gray",
-            linestyle="--",
-            linewidth=0.8,
-        )
-
-    # Labeling with increased font sizes
-    plt.title("Scatter Plot of File Size vs Emissions", fontsize=16)
-    plt.xlabel("File Size (bytes)", fontsize=14)
-    plt.ylabel("Emissions (kgCO₂eq)", fontsize=14)
-
-    # Adjust legend with larger font size
-    plt.legend(fontsize=12)
-
-    # Grid for better readability
-    plt.grid(True, linestyle='--', alpha=0.6)
-
-    # Adjust tick labels font size
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-
-    plt.tight_layout()
-
-    # Delete the plot if it already exists
-    plot_path = f"{project_path}/scatter_plot.svg"
-    if os.path.exists(plot_path):
-        os.remove(plot_path)
-
-    # Save the new plot
-    plt.savefig(plot_path, format='svg', bbox_inches='tight')
-
 
 # Generates bar plots showcasing a result metric per dump for all dumps combined
 def generate_bar_plots():
@@ -375,7 +337,7 @@ def generate_bar_plots():
 
         # Extract data for each quantity
         for file in files:
-            with open(file, 'r') as existingFile:
+            with (open(file, 'r') as existingFile):
                 reader = csv.reader(existingFile, quoting=csv.QUOTE_MINIMAL)
                 # Skip the header
                 header = next(reader, None)
@@ -400,7 +362,8 @@ def generate_bar_plots():
                     https_variance = sum((x - https_mean) ** 2 for x in https_values) / len(https_values)
 
                     # Use the file name (without extension) as the label
-                    test_name = file.replace(f"{project_path}/results_", "").replace('.csv', '').capitalize()
+                    test_name = file.replace(f"{project_path}/results_", ""
+                                             ).replace('.csv', '').capitalize()
 
                     # Add the relevant values to the lists
                     x.append(test_name)
@@ -475,6 +438,112 @@ def generate_bar_plots():
         # Save the new plot
         plt.savefig(plot_path, format='svg', bbox_inches='tight')
 
+
+# Generates a scatter plot showcasing file size versus emissions per protocol
+def generate_file_size_plot():
+    # Load data
+    http_emissions = pd.read_csv(f"{project_path}/file_size_data_http.csv")
+    https_emissions = pd.read_csv(f"{project_path}/file_size_data_https.csv")
+
+    # Load file size data
+    file_sizes_http = pd.read_csv(f"{project_path}/file_size_data_sizes_http.csv")
+    file_sizes_https = pd.read_csv(f"{project_path}/file_size_data_sizes_https.csv")
+
+    http_data = pd.DataFrame({
+        "size": file_sizes_http["size"],  # Replace 'file_size' with the actual column name
+        "emissions": http_emissions["emissions"]  # Replace 'emissions' with the actual column name
+    })
+
+    https_data = pd.DataFrame({
+        "size": file_sizes_https["size"],  # Replace 'file_size' with the actual column name
+        "emissions": https_emissions["emissions"]  # Replace 'emissions' with the actual column name
+    })
+
+    # Extract relevant columns for plotting
+    x_http = http_data["size"]
+    y_http = http_data["emissions"]
+
+    x_https = https_data["size"]
+    y_https = https_data["emissions"]
+
+    # Create scatter plot
+    plt.figure(figsize=(10, 6))
+
+    plt.scatter(x_http, y_http, color="blue", label="HTTP", alpha=0.7)
+    plt.scatter(x_https, y_https, color="green", label="HTTPS", alpha=0.7)
+
+    # Draw lines connecting HTTP and HTTPS
+    for i in range(len(http_data)):
+        plt.plot(
+            [http_data["size"][i], https_data["size"][i]],  # Same x (file size)
+            [http_data["emissions"][i], https_data["emissions"][i]],  # HTTP to HTTPS
+            color="gray",
+            linestyle="--",
+            linewidth=0.8,
+        )
+
+    # Labeling with increased font sizes
+    plt.title("Scatter Plot of File Size vs Emissions", fontsize=18)
+    plt.xlabel("File Size (bytes)", fontsize=16)
+    plt.ylabel("Emissions (kgCO₂eq)", fontsize=16)
+
+    # Adjust legend with larger font size
+    plt.legend(fontsize=14)
+
+    # Grid for better readability
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # Adjust tick labels font size
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.tight_layout()
+
+    # Delete the plot if it already exists
+    plot_path = f"{project_path}/file_size_plot.svg"
+    if os.path.exists(plot_path):
+        os.remove(plot_path)
+
+    # Save the new plot
+    plt.savefig(plot_path, format='svg', bbox_inches='tight')
+
+
+# Generates a graph showing emssions for differing fetch sizes for both protocols
+def generate_fetch_sizes_plot():
+    # Load data from the CSV files
+    http_data = pd.read_csv(f"{project_path}/fetch_sizes_data_http.csv")
+    https_data = pd.read_csv(f"{project_path}/fetch_sizes_data_https.csv")
+
+    # Extract emissions data
+    http_emissions = http_data['emissions']
+    https_emissions = https_data['emissions']
+
+    # Plot the data
+    plt.figure(figsize=(10, 6))
+    plt.plot(fetch_sizes, http_emissions, label='HTTP', marker='o', linestyle='-', color='blue')
+    plt.plot(fetch_sizes, https_emissions, label='HTTPS', marker='s', linestyle='--', color='green')
+
+    # Add labels, title, and legend
+    plt.title('Plot of Fetch Size vs Emissions', fontsize=18)
+    plt.xlabel('Fetch Size (files)', fontsize=16)
+    plt.ylabel('Emissions (kgCO₂eq)', fontsize=16)
+    plt.legend(fontsize=14)
+    plt.grid(True, linestyle='--', alpha=0.7)
+
+    # Increase tick label font sizes
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+
+    plt.tight_layout()
+
+    # Delete the plot if it already exists
+    plot_path = f"{project_path}/fetch_sizes_plot.svg"
+    if os.path.exists(plot_path):
+        os.remove(plot_path)
+
+    # Save the new plot
+    plt.savefig(plot_path, format='svg', bbox_inches='tight')
+
 #---------------------------------------------------END OF FUNCTIONS---------------------------------------------------#
 
 
@@ -527,13 +596,14 @@ if __name__ == "__main__":
     print(f"{os.linesep}Generating combined bar plots for every individual variable in results files...")
     generate_bar_plots()
 
+
     # Run the file size experiment
     print(f"{os.linesep}Starting the file size experiment...")
     file_size_experiment()
 
-    # Wait until every scatter_data file is generated
+    # Wait until every file_size_data file is generated
     print(f"{os.linesep}{os.linesep}File size experiment finished! Waiting for all results files to be generated...")
-    for file in ["scatter_data_http", "scatter_data_https", "scatter_data_sizes_http", "scatter_data_sizes_https"]:
+    for file in ["file_size_data_http", "file_size_data_https", "file_size_data_sizes_http", "file_size_data_sizes_https"]:
         while True:
             if Path(f"{project_path}/{file}.csv").exists():
                 break
@@ -544,7 +614,26 @@ if __name__ == "__main__":
     print(f"{os.linesep}Generating scatter plot showcasing file size versus emissions...")
     generate_file_size_plot()
 
+
+    # Run the fetch sizes experiment
+    print(f"{os.linesep}Starting the fetch sizes experiment...")
+    fetch_sizes_experiment()
+
+    # Wait until every fetch_sizes_data file is generated
+    print(f"{os.linesep}{os.linesep}Fetch sizes experiment finished! Waiting for all results files to be generated...")
+    for file in ["fetch_sizes_data_http", "fetch_sizes_data_https"]:
+        while True:
+            if Path(f"{project_path}/{file}.csv").exists():
+                break
+            else:
+                sleep(0.1)
+
+    # Generate the plot showcasing fetch sizes versus emissions
+    print(f"{os.linesep}Generating plot showcasing fetch sizes versus emissions...")
+    generate_fetch_sizes_plot()
+
     # End of the experiment script
     print(f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}")
 
 #----------------------------------------------------END OF SCRIPT-----------------------------------------------------#
+
