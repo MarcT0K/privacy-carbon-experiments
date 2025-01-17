@@ -90,6 +90,7 @@ def remove_old_results():
                 except (PermissionError, FileNotFoundError) as e:
                     print(f"Could not delete {file_path}: {e}")
 
+
 # Grabs num_files random files from the dump_to_test
 def get_random_files():
     all_files = []
@@ -106,6 +107,7 @@ def get_random_files():
 
     # Randomly select the specified number of files
     return random.sample(all_files, num_files)
+
 
 # Extends the random files list, shuffles the list,
 # creates a list with the appropriate data-structure for the experiment
@@ -130,6 +132,7 @@ def setup():
         print("Experiment interrupted by user...")
 
     return result
+
 
 # Performs a single fetch request using {protocol}
 def fetch(protocol, file):
@@ -183,6 +186,7 @@ def main_experiment():
         except KeyboardInterrupt:
             print("Experiment interrupted by user...")
 
+
 # Performs the file size experiment
 def file_size_experiment():
     global dump_to_test
@@ -204,8 +208,6 @@ def file_size_experiment():
     num_bins = 5
     # Number of files to select from each bin
     num_files_per_bin = 10
-    # Set the total number of files to select (same as number_files)
-    total_files_to_select = num_bins * num_files_per_bin
 
     # Create bins based on file sizes
     files_df["size_bin"] = pd.cut(files_df["file_size"], bins=num_bins)
@@ -213,43 +215,37 @@ def file_size_experiment():
     # Randomly select files from each bin
     selected_files = []
     for _, bin_group in files_df.groupby("size_bin"):
-        if len(bin_group) < num_files_per_bin:
-            # If there are fewer files in the bin than needed, take all of them
-            selected_files.extend(bin_group["file_path"].tolist())
-        else:
-            # Otherwise, randomly sample the required number of files
-            selected_files.extend(bin_group.sample(n=num_files_per_bin)["file_path"].tolist())
-
-    # If more files are selected than needed, truncate the list
-    if len(selected_files) > total_files_to_select:
-        selected_files = random.sample(selected_files, total_files_to_select)
+        # Take at most `num_files_per_bin` files from each bin
+        selected_files.extend(bin_group.sample(n=min(len(bin_group), num_files_per_bin))["file_path"].tolist())
 
     for protocol in ["http", "https"]:
-        # Create a CodeCarbon offline tracker
-        tracker = OfflineEmissionsTracker(
-            measure_power_secs=1,
-            country_iso_code="NLD",
-            output_file=f"{project_path}/file_size_data_{protocol}.csv",
-            log_level="error"
-        )
 
-        # Open the relevant results file
-        with open(f'{project_path}/file_size_data_sizes_{protocol}.csv', 'w', newline="") as output_file:
-            # Create a writer for the file
-            writer = csv.writer(output_file, quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(['size'])
+            for iteration in range(num_of_runs):
+                # Create a CodeCarbon offline tracker
+                tracker = OfflineEmissionsTracker(
+                    measure_power_secs=1,
+                    country_iso_code="NLD",
+                    output_file=f"{project_path}/file_size_data_{iteration}_{protocol}.csv",
+                    log_level="error"
+                )
 
-            for file in selected_files:
-                # Start the tracker before fetching
-                tracker.start()
+                # Open the relevant results file
+                with open(f'{project_path}/file_size_data_sizes_{iteration}_{protocol}.csv', 'w', newline="") as output_file:
+                    writer = csv.writer(output_file, quoting=csv.QUOTE_MINIMAL)
+                    writer.writerow(['size'])
 
-                # Fetch each file using the specified protocol
-                fetch(protocol, file)
+                    for file in selected_files:
+                        # Start the tracker before fetching
+                        tracker.start()
 
-                # Stop the tracker after the fetches are complete
-                tracker.stop()
+                        # Fetch each file using the specified protocol
+                        fetch(protocol, file)
 
-                writer.writerow([os.path.getsize(file)])
+                        # Stop the tracker after the fetches are complete
+                        tracker.stop()
+
+                        # Write size
+                        writer.writerow([os.path.getsize(file)])
 
 
 # Performs the fetch size experiment
@@ -259,24 +255,26 @@ def fetch_sizes_experiment():
     selected_file = f"{dumps_folder_dict.get(dump_to_test)}/index.html"
 
     for protocol in ["http", "https"]:
-        # Create a CodeCarbon offline tracker
-        tracker = OfflineEmissionsTracker(
-            measure_power_secs=1,
-            country_iso_code="NLD",
-            output_file=f"{project_path}/fetch_sizes_data_{protocol}.csv",
-            log_level="error"
-        )
 
-        for i in range(len(fetch_sizes)):
-            # Start the tracker before fetching
-            tracker.start()
+        for iteration in range(num_of_runs):
+            # Create a CodeCarbon offline tracker
+            tracker = OfflineEmissionsTracker(
+                measure_power_secs=1,
+                country_iso_code="NLD",
+                output_file=f"{project_path}/fetch_sizes_data_{iteration}_{protocol}.csv",
+                log_level="error"
+            )
 
-            for j in range(fetch_sizes[i]):
-                # Fetch the file using the specified protocol
-                fetch(protocol, selected_file[0])
+            for i in range(len(fetch_sizes)):
+                # Start the tracker before fetching
+                tracker.start()
 
-            # Stop the tracker after the fetches are complete
-            tracker.stop()
+                for j in range(fetch_sizes[i]):
+                    # Fetch the file using the specified protocol
+                    fetch(protocol, selected_file[0])
+
+                # Stop the tracker after the fetches are complete
+                tracker.stop()
 
 
 # Fetches the results from raw_emissions_{dump_to_test}.csv and generates both a results and ratios csv file
@@ -466,44 +464,52 @@ def generate_bar_plots():
         plt.savefig(plot_path, format='svg', bbox_inches='tight')
 
 
-# Generates a scatter plot showcasing file size versus emissions per protocol
+# Generates a scatter plot showcasing file size vs emissions
 def generate_file_size_plot():
-    # Load data
-    http_emissions = pd.read_csv(f"{project_path}/file_size_data_http.csv")
-    https_emissions = pd.read_csv(f"{project_path}/file_size_data_https.csv")
+    # Initialize lists to store emissions and file sizes for each run
+    http_emissions_runs = []
+    https_emissions_runs = []
+    http_sizes_runs = []
+    https_sizes_runs = []
 
-    # Load file size data
-    file_sizes_http = pd.read_csv(f"{project_path}/file_size_data_sizes_http.csv")
-    file_sizes_https = pd.read_csv(f"{project_path}/file_size_data_sizes_https.csv")
+    # Load all iterations for HTTP and HTTPS
+    for i in range(num_of_runs):
+        # Read emissions and file sizes for each run
+        http_emissions = pd.read_csv(f"{project_path}/file_size_data_{i}_http.csv")["emissions"]
+        https_emissions = pd.read_csv(f"{project_path}/file_size_data_{i}_https.csv")["emissions"]
+        http_sizes = pd.read_csv(f"{project_path}/file_size_data_sizes_{i}_http.csv")["size"]
+        https_sizes = pd.read_csv(f"{project_path}/file_size_data_sizes_{i}_https.csv")["size"]
 
-    http_data = pd.DataFrame({
-        "size": file_sizes_http["size"],  # Replace 'file_size' with the actual column name
-        "emissions": http_emissions["emissions"]  # Replace 'emissions' with the actual column name
-    })
+        # Append data for this run
+        http_emissions_runs.append(http_emissions)
+        https_emissions_runs.append(https_emissions)
+        http_sizes_runs.append(http_sizes)
+        https_sizes_runs.append(https_sizes)
 
-    https_data = pd.DataFrame({
-        "size": file_sizes_https["size"],  # Replace 'file_size' with the actual column name
-        "emissions": https_emissions["emissions"]  # Replace 'emissions' with the actual column name
-    })
+    # Convert the list of emissions and sizes into DataFrames
+    http_emissions_df = pd.DataFrame(http_emissions_runs)
+    https_emissions_df = pd.DataFrame(https_emissions_runs)
+    http_sizes_df = pd.DataFrame(http_sizes_runs)
+    https_sizes_df = pd.DataFrame(https_sizes_runs)
 
-    # Extract relevant columns for plotting
-    x_http = http_data["size"]
-    y_http = http_data["emissions"]
-
-    x_https = https_data["size"]
-    y_https = https_data["emissions"]
+    # Compute the average emissions and file sizes across all runs
+    http_emissions_mean = http_emissions_df.mean(axis=0)
+    https_emissions_mean = https_emissions_df.mean(axis=0)
+    http_sizes_mean = http_sizes_df.mean(axis=0)
+    https_sizes_mean = https_sizes_df.mean(axis=0)
 
     # Create scatter plot
     plt.figure(figsize=(10, 6))
 
-    plt.scatter(x_http, y_http, color="blue", label="HTTP", alpha=0.7)
-    plt.scatter(x_https, y_https, color="green", label="HTTPS", alpha=0.7)
+    # Plot HTTP and HTTPS data
+    plt.scatter(http_sizes_mean, http_emissions_mean, color="blue", label="HTTP", alpha=0.7)
+    plt.scatter(https_sizes_mean, https_emissions_mean, color="green", label="HTTPS", alpha=0.7)
 
-    # Draw lines connecting HTTP and HTTPS
-    for i in range(len(http_data)):
+    # Draw lines connecting HTTP and HTTPS for each file
+    for i in range(len(http_sizes_mean)):
         plt.plot(
-            [http_data["size"][i], https_data["size"][i]],  # Same x (file size)
-            [http_data["emissions"][i], https_data["emissions"][i]],  # HTTP to HTTPS
+            [http_sizes_mean[i], https_sizes_mean[i]],
+            [http_emissions_mean[i], https_emissions_mean[i]],
             color="gray",
             linestyle="--",
             linewidth=0.8,
@@ -518,7 +524,7 @@ def generate_file_size_plot():
     plt.legend(fontsize=14)
 
     # Grid for better readability
-    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.grid(True, linestyle="--", alpha=0.6)
 
     # Adjust tick labels font size
     plt.xticks(fontsize=14)
@@ -532,30 +538,44 @@ def generate_file_size_plot():
         os.remove(plot_path)
 
     # Save the new plot
-    plt.savefig(plot_path, format='svg', bbox_inches='tight')
+    plt.savefig(plot_path, format="svg", bbox_inches="tight")
 
 
-# Generates a graph showing emssions for differing fetch sizes for both protocols
+# Generates a plot showcasing fetch sizes vs emissions
 def generate_fetch_sizes_plot():
-    # Load data from the CSV files
-    http_data = pd.read_csv(f"{project_path}/fetch_sizes_data_http.csv")
-    https_data = pd.read_csv(f"{project_path}/fetch_sizes_data_https.csv")
+    # Initialize lists to store emissions data
+    http_emissions_runs = []
+    https_emissions_runs = []
 
-    # Extract emissions data
-    http_emissions = http_data['emissions']
-    https_emissions = https_data['emissions']
+    # Load all iterations for HTTP and HTTPS
+    for i in range(num_of_runs):
+        # Read HTTP and HTTPS data for each run
+        http_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_http.csv")
+        https_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_https.csv")
+
+        # Append emissions data for this run
+        http_emissions_runs.append(http_data["emissions"])
+        https_emissions_runs.append(https_data["emissions"])
+
+    # Convert the list of emissions runs into DataFrames
+    http_emissions_df = pd.DataFrame(http_emissions_runs)
+    https_emissions_df = pd.DataFrame(https_emissions_runs)
+
+    # Compute the average emissions across all runs for each fetch size
+    http_emissions_mean = http_emissions_df.mean(axis=0)
+    https_emissions_mean = https_emissions_df.mean(axis=0)
 
     # Plot the data
     plt.figure(figsize=(10, 6))
-    plt.plot(fetch_sizes, http_emissions, label='HTTP', marker='o', linestyle='-', color='blue')
-    plt.plot(fetch_sizes, https_emissions, label='HTTPS', marker='s', linestyle='--', color='green')
+    plt.plot(fetch_sizes, http_emissions_mean, label="HTTP", marker="o", linestyle="-", color="blue")
+    plt.plot(fetch_sizes, https_emissions_mean, label="HTTPS", marker="s", linestyle="--", color="green")
 
     # Add labels, title, and legend
-    plt.title('Plot of Fetch Size vs Emissions', fontsize=18)
-    plt.xlabel('Fetch Size (files)', fontsize=16)
-    plt.ylabel('Emissions (kgCO₂eq)', fontsize=16)
+    plt.title("Plot of Fetch Size vs Emissions", fontsize=18)
+    plt.xlabel("Fetch Size (files)", fontsize=16)
+    plt.ylabel("Emissions (kgCO₂eq)", fontsize=16)
     plt.legend(fontsize=14)
-    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.grid(True, linestyle="--", alpha=0.7)
 
     # Increase tick label font sizes
     plt.xticks(fontsize=14)
@@ -569,7 +589,7 @@ def generate_fetch_sizes_plot():
         os.remove(plot_path)
 
     # Save the new plot
-    plt.savefig(plot_path, format='svg', bbox_inches='tight')
+    plt.savefig(plot_path, format="svg", bbox_inches="tight")
 
 #---------------------------------------------------END OF FUNCTIONS---------------------------------------------------#
 
@@ -630,7 +650,11 @@ if __name__ == "__main__":
 
     # Wait until every file_size_data file is generated
     print(f"{os.linesep}{os.linesep}File size experiment finished! Waiting for all results files to be generated...")
-    for file in ["file_size_data_http", "file_size_data_https", "file_size_data_sizes_http", "file_size_data_sizes_https"]:
+    all_file_size_files = [f"file_size_data_{i}_http" for i in range(num_of_runs)]
+    all_file_size_files.extend([f"file_size_data_{i}_https" for i in range(num_of_runs)])
+    all_file_size_files.extend([f"file_size_data_sizes_{i}_http" for i in range(num_of_runs)])
+    all_file_size_files.extend([f"file_size_data_sizes_{i}_https" for i in range(num_of_runs)])
+    for file in all_file_size_files:
         while True:
             if Path(f"{project_path}/{file}.csv").exists():
                 break
@@ -648,7 +672,9 @@ if __name__ == "__main__":
 
     # Wait until every fetch_sizes_data file is generated
     print(f"{os.linesep}{os.linesep}Fetch sizes experiment finished! Waiting for all results files to be generated...")
-    for file in ["fetch_sizes_data_http", "fetch_sizes_data_https"]:
+    all_fetch_sizes_files = [f"fetch_sizes_data_{i}_http" for i in range(num_of_runs)]
+    all_fetch_sizes_files.extend([f"fetch_sizes_data_{i}_https" for i in range(num_of_runs)])
+    for file in all_fetch_sizes_files:
         while True:
             if Path(f"{project_path}/{file}.csv").exists():
                 break
@@ -663,4 +689,3 @@ if __name__ == "__main__":
     print(f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}")
 
 #----------------------------------------------------END OF SCRIPT-----------------------------------------------------#
-
