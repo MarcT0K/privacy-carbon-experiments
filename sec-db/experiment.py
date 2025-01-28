@@ -3,7 +3,7 @@ from codecarbon import EmissionsTracker
 
 # Function to run a script inside a pre-existing Docker container
 def run_script_in_container():
-    container_name = "bachelorresearch-redis-1"  # Replace with your container name
+    container_name = ""  # Replace with your container name
     script_path_plaintext = "/SWiSSSE/scripts/setup_plaintext.sh"  # Path to the script inside the container
     script_path_swissse = "/SWiSSSE/scripts/setup_swissse.sh"  # Path to the script inside the container
 
