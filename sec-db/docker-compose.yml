@@ -1,0 +1,17 @@
+services:
+  redis:
+    platform: linux/amd64
+    image: redis:7.4.1-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 6379:6379
+    command: redis-server ./config_files/redis.conf --loglevel verbose
+    networks:
+      - redis-network
+    volumes:
+      - ${PWD}/SWiSSSE:/SWiSSSE
+networks:
+  redis-network:
+    driver: bridge
