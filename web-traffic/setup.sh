@@ -12,12 +12,6 @@ USER_DIR=$(eval echo "~$USER_NAME")
 # Fetch the user running nginx from the nginx.conf file
 NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;//')
 
-# Define the path to Miniconda installation
-MINICONDA_PATH="$USER_DIR/Downloads/miniconda3"
-	
-# The shell configuration file (change if using a different shell, e.g., ~/.zshrc for Zsh)
-SHELL_CONFIG="$USER_DIR/.bashrc"
-
 #-----------------------------------------END OF VARIABLES-----------------------------------------
 
 
@@ -108,22 +102,8 @@ disable_SELinux() {
 
 # Function to navigate to Downloads folder (and create the folder first if non-existent)
 navigate_downloads() {
-	mkdir -p "$USER_DIR/Downloads"	
+	mkdir -p "$USER_DIR/Downloads"
 	cd "$USER_DIR/Downloads"
-}
-
-# Function to make anaconda be recognized by the system
-init_anaconda() {
-	# Check if the export line already exists, to avoid duplicates
-	if ! grep -q "miniconda3/bin" "$SHELL_CONFIG"; then
-    	echo "export PATH=\"$MINICONDA_PATH/bin:\$PATH\"" >> "$SHELL_CONFIG"
-    	echo "Miniconda path has been added to $SHELL_CONFIG"
-	else
-    	echo "Miniconda path already exists in $SHELL_CONFIG"
-	fi
-	
-	# Reload the configuration to apply the changes
-	source "$SHELL_CONFIG"
 }
 
 #-----------------------------------------END OF FUNCTIONS-----------------------------------------
@@ -290,30 +270,17 @@ EOF
 echo "Restarting Nginx server to load new changes"
 sudo systemctl restart nginx
 
-# Install Anaconda
-echo "Installing Anaconda"
-wget -P Downloads https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash Downloads/Miniconda3-latest-Linux-x86_64.sh -b -p Downloads/miniconda3
+# Create a venv using python
+python -m venv Downloads/venv
 
-# Make Anaconda be recognized by the system
-echo "Initializing Anaconda"
-init_anaconda
+# Activate the venv
+source Downloads/venv/bin/activate
 
-# Set up the Anaconda environment
-echo "Setting up Anaconda environment"
-conda create -n experiment -y
-# Source Conda initialization
-source Downloads/miniconda3/etc/profile.d/conda.sh
-# Activate newly created experiment environment
-conda activate experiment
 # Install necessary packages
-conda install pandas matplotlib requests -y
-pip install codecarbon
+pip install codecarbon matplotlib pandas requests
 
-# Get the Anaconda python path
-PYTHON_PATH=$(which python)
-
-# Run the experiment (uncomment the line below and input correct path to experiment.py)
-#sudo $PYTHON_PATH path/to/the/experiment/experiment.py
+# TO RUN THE EXPERIMENT, PASTE THE BELOW COMMAND INTO TERMINAL (WITH THE VENV ACTIVATED)
+# AND SET THE CORRECT EXPERIMENT FILE PATH
+#sudo ~/Downloads/venv/bin/python path/to/the/experiment_folder/experiment.py
 
 #-------------------------------------------END OF SCRIPT-------------------------------------------
