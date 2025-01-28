@@ -1,6 +1,7 @@
 #!/bin/bash
 #set -e
 #WARNING: THIS SCRIPT REQUIRES ROOT (SUDO)
+#Do not forget to grand execution permission to this script: sudo chmod +x path/to/script/setup.sh
 
 #----------------------------------------START OF VARIABLES----------------------------------------
 #Get the name of the user running this shell script
@@ -9,8 +10,8 @@ USER_NAME=${SUDO_USER:-$(whoami)}
 #Get the home directory of the user
 USER_DIR=$(eval echo "~$USER_NAME")
 
-# Fetch the user running nginx from the nginx.conf file
-NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;//')
+# Path to the experiment.py file
+EXPERIMENT_PATH="$USER_DIR/Downloads/experiment.py"
 
 #-----------------------------------------END OF VARIABLES-----------------------------------------
 
@@ -25,6 +26,28 @@ check_root() {
 		echo -e "Root privileges were not granted.\nThis script needs root in order to run! Exiting."
 	    	exit 1
 	fi
+}
+
+check_experiment_path() {
+	# Prompt the user to confirm
+	echo -e "This script will execute the experiment after the setup is finished.\nThe current experiment path is set to: $EXPERIMENT_PATH"
+	read -p "Is this path correct? (y/n): " response
+
+	# Check the user's response
+	case "$response" in
+    	[Yy]* )
+        	echo "Path confirmed. Starting execution..."
+        	# Proceed with the script
+        	;;
+    	[Nn]* )
+        	echo "Path is not correct. Please first update the path before executing. Exiting script."
+        	exit 1
+        	;;
+    	* )
+        	echo "Invalid response. Please run the script again and answer 'y' or 'n'."
+        	exit 1
+        	;;
+	esac
 }
 
 # Function to install packages with the appropriate package manager
@@ -116,6 +139,9 @@ navigate_downloads() {
 # Check for root privileges
 check_root
 
+# Check that the experiment path is correct
+check_experiment_path
+
 # Ensure we are in the home directory
 cd "$USER_DIR"
 
@@ -134,7 +160,7 @@ install_packages_with_package_manager "curl p7zip httrack"
 # Download Wikipedia 2007 dump
 navigate_downloads
 echo "Downloading Wikipedia 2007 dump"
-curl -s -o "wikipedia-simple-html.7z" "https://dumps.wikimedia.org/other/#static_html_dumps/April_2007/simple/wikipedia-simple-html.7z"
+curl -s -o "wikipedia-simple-html.7z" "https://dumps.wikimedia.org/other/static_html_dumps/April_2007/simple/wikipedia-simple-html.7z"
 
 # Extract the Wikipedia 2007 dump
 mkdir -p ./wikipedia-simple-html
@@ -144,9 +170,12 @@ sudo 7za x "wikipedia-simple-html.7z" -o./wikipedia-simple-html
 rm "wikipedia-simple-html.7z"
 cd "$USER_DIR"
 
+# Fetch the user running nginx from the nginx.conf file
+NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;//')
+
 # Change permissions of the Wikipedia dump so Nginx can access it
 echo "Changing Wikipedia folder permissions"
-sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x Downloads/wikipedia-simple-#html
+sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x Downloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
 echo "disabling SELinux temporarily if applicable"
@@ -162,7 +191,7 @@ httrack "https://github.com/chromium/chromium" -O Downloads/github -r2 --robots=
 
 # Download MDN docs dump
 echo "Downloading MDN docs dump"
-httrack "https://developer.mozilla.org/en-US/docs/Learn" -O Downloads/mdn_learn -r2 #--robots=0
+httrack "https://developer.mozilla.org/en-US/docs/Learn" -O Downloads/mdn_learn -r2 --robots=0
 
 # Download amazon.nl dump
 echo "Downloading amazon.nl dump"
@@ -202,7 +231,7 @@ openssl genrsa -out "localhost.key" 2048
 
 # Generate certificate
 echo "Generating certificate"
-openssl req -x509 -new -nodes -key "localhost.key" -sha256 -days 365 -out #"localhost.crt" -config "localhost.conf"
+openssl req -x509 -new -nodes -key "localhost.key" -sha256 -days 365 -out "localhost.crt" -config "localhost.conf"
 
 # Change permissions of private key
 echo "Changing private key permissions"
@@ -270,17 +299,26 @@ EOF
 echo "Restarting Nginx server to load new changes"
 sudo systemctl restart nginx
 
-# Create a venv using python
+# Go back to home directory
+cd "$USER_DIR"
+
+# Load environment variables
+source ~/.bashrc
+
+echo "Creating venv using python"
 python -m venv Downloads/venv
 
 # Activate the venv
+echo "Activating the venv"
 source Downloads/venv/bin/activate
 
 # Install necessary packages
 pip install codecarbon matplotlib pandas requests
 
-# TO RUN THE EXPERIMENT, PASTE THE BELOW COMMAND INTO TERMINAL (WITH THE VENV ACTIVATED)
-# AND SET THE CORRECT EXPERIMENT FILE PATH
-#sudo ~/Downloads/venv/bin/python path/to/the/experiment_folder/experiment.py
+# Give execution permission to experiment.py
+sudo chmod +x $EXPERIMENT_PATH
+
+# Run the experiment (CHANGE PATH TO EXPERIMENT IF NECESSARY)
+sudo $USER_DIR/Downloads/venv/bin/python $EXPERIMENT_PATH
 
 #-------------------------------------------END OF SCRIPT-------------------------------------------
