@@ -270,17 +270,20 @@ EOF
 echo "Restarting Nginx server to load new changes"
 sudo systemctl restart nginx
 
-# Create a venv using python
+# Load environment variables
+source ~/.bashrc
+
+echo "Creating venv using python"
 python -m venv Downloads/venv
 
 # Activate the venv
+echo "Activating the venv"
 source Downloads/venv/bin/activate
 
 # Install necessary packages
 pip install codecarbon matplotlib pandas requests
 
-# TO RUN THE EXPERIMENT, PASTE THE BELOW COMMAND INTO TERMINAL (WITH THE VENV ACTIVATED)
-# AND SET THE CORRECT EXPERIMENT FILE PATH
-#sudo ~/Downloads/venv/bin/python path/to/the/experiment_folder/experiment.py
+# Run the experiment (CHANGE PATH TO EXPERIMENT IF NECESSARY)
+sudo python Downloads/experiment.py
 
 #-------------------------------------------END OF SCRIPT-------------------------------------------
