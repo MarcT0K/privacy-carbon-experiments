@@ -5,49 +5,91 @@ import glob
 import os
 import logging
 
+from csv import DictWriter
+
 import colorlog
 import pandas as pd
 import gnupg
+
+# TODO: add sequoia pgp
 import tqdm
 
 from codecarbon import OfflineEmissionsTracker
-from pgpy.constants import (
-    PubKeyAlgorithm,
-    KeyFlags,
-    HashAlgorithm,
-    SymmetricKeyAlgorithm,
-    CompressionAlgorithm,
-)
 
 logger = colorlog.getLogger()
 
-# TODO: add Signal (https://github.com/freedomofpress/signal-protocol)?
 
-
-def setup_logger(log_level=logging.INFO):
-    logger.handlers = []  # Reset handlers
-    handler = colorlog.StreamHandler()
-    handler.setFormatter(
-        colorlog.ColoredFormatter(
-            "%(log_color)s[%(asctime)s %(levelname)s] %(white)s%(message)s",
-            datefmt="%H:%M:%S",
-            reset=True,
-            log_colors={
-                "DEBUG": "cyan",
-                "INFO": "green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "red",
-            },
+class Laboratory:
+    def __init__(self, log_level=logging.INFO):
+        self.tracker = OfflineEmissionsTracker(
+            measure_power_secs=5,
+            country_iso_code="FRA",
+            output_file="raw_emissions.csv",
+            log_level="error",
         )
-    )
-    file_handler = logging.FileHandler("experiment.log")
-    file_handler.setFormatter(
-        logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
-    )
-    logger.addHandler(file_handler)
-    logger.addHandler(handler)
-    logger.setLevel(log_level)
+
+        self.started = False
+
+        # SETUP RESULT CSV
+        csv_file = open("results.csv", "w", encoding="utf-8")
+        writer = DictWriter(csv_file, fieldnames=["Experiment", "Energy", "Carbon"])
+        writer.writeheader()
+
+        # SETUP LOGGER
+        logger.handlers = []  # Reset handlers
+        handler = colorlog.StreamHandler()
+        handler.setFormatter(
+            colorlog.ColoredFormatter(
+                "%(log_color)s[%(asctime)s %(levelname)s] %(white)s%(message)s",
+                datefmt="%H:%M:%S",
+                reset=True,
+                log_colors={
+                    "DEBUG": "cyan",
+                    "INFO": "green",
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "red",
+                },
+            )
+        )
+        file_handler = logging.FileHandler("experiment.log")
+        file_handler.setFormatter(
+            logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
+        )
+        logger.addHandler(file_handler)
+        logger.addHandler(handler)
+        logger.setLevel(log_level)
+
+    def track_energy_footprint(
+        self, experiment_name, experiment_function, *args, **kwargs
+    ):
+        assert self.started
+
+        begin_emission = self.tracker.flush()
+        begin_energy = self.tracker._total_energy.kWh
+
+        logger.warning(experiment_name + " begins")
+        experiment_function(*args, **kwargs)
+
+        end_emission = self.tracker.flush()
+        end_energy = self.tracker._total_energy.kWh
+
+        carbon_diff = end_emission - begin_emission
+        energy_diff = end_energy - begin_energy
+
+        logger.info("Cost summary:")
+        logger.info(f"Carbon footprint: {carbon_diff} KgCO2e")
+        logger.info(f"Energy consumption: {energy_diff} KWh")
+        logger.warning(experiment_name + " ends...")
+
+    def __enter__(self):
+        self.tracker.start()
+        self.started = True
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.tracker.stop()
+        self.started = False
 
 
 def get_body_from_enron_email(mail):
@@ -72,23 +114,6 @@ def extract_enron_sent_emails(maildir_directory="maildir/") -> pd.DataFrame:
             mail_contents.append(get_body_from_enron_email(raw_mail))
 
     return pd.DataFrame(data={"filename": mails, "mail_body": mail_contents})
-
-
-def track_energy_footprint(
-    tracker, experiment_name, experiment_function, *args, **kwargs
-):
-    begin_emission = tracker.flush()
-    begin_energy = tracker._total_energy.kWh
-
-    logger.warning(experiment_name + " begins")
-    experiment_function(*args, **kwargs)
-
-    end_emission = tracker.flush()
-    end_energy = tracker._total_energy.kWh
-    logger.info("Cost summary:")
-    logger.info(f"Carbon footprint: {end_emission - begin_emission} KgCO2e")
-    logger.info(f"Energy consumption: {end_energy - begin_energy} KWh")
-    logger.warning(experiment_name + " ends...")
 
 
 def generate_keys(key_type):
@@ -179,7 +204,6 @@ def encrypt_all(mails, sender_key, recv_key):
 
 
 def experiment():
-    setup_logger()
     logger.error("Experiment begins...")
 
     logger.warning("Extracting Enron emails")
@@ -190,51 +214,41 @@ def experiment():
     alice_key_rsa, bob_key_rsa = generate_keys("RSA")
     alice_key_ecc, bob_key_ecc = generate_keys("ECC")
 
-    tracker = OfflineEmissionsTracker(
-        measure_power_secs=5,
-        country_iso_code="FRA",
-        output_file="raw_emissions.csv",
-        log_level="error",
-    )
-    tracker.start()
-
     try:
-        track_energy_footprint(
-            tracker, "Encrypt RSA", encrypt_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        track_energy_footprint(
-            tracker, "Encrypt ECC", encrypt_all, mails, alice_key_ecc, bob_key_ecc
-        )
+        with Laboratory() as lab:
+            lab.track_energy_footprint(
+                "Encrypt RSA", encrypt_all, mails, alice_key_rsa, bob_key_rsa
+            )
+            lab.track_energy_footprint(
+                "Encrypt ECC", encrypt_all, mails, alice_key_ecc, bob_key_ecc
+            )
 
-        track_energy_footprint(
-            tracker, "Sign RSA", sign_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        track_energy_footprint(
-            tracker, "Sign ECC", sign_all, mails, alice_key_ecc, bob_key_ecc
-        )
+            lab.track_energy_footprint(
+                "Sign RSA", sign_all, mails, alice_key_rsa, bob_key_rsa
+            )
+            lab.track_energy_footprint(
+                "Sign ECC", sign_all, mails, alice_key_ecc, bob_key_ecc
+            )
 
-        track_energy_footprint(
-            tracker,
-            "Sign+encrypt",
-            sign_and_encrypt_all,
-            mails,
-            alice_key_rsa,
-            bob_key_rsa,
-        )
-        track_energy_footprint(
-            tracker,
-            "Sign+encrypt",
-            sign_and_encrypt_all,
-            mails,
-            alice_key_ecc,
-            bob_key_ecc,
-        )
+            lab.track_energy_footprint(
+                "Sign+encrypt",
+                sign_and_encrypt_all,
+                mails,
+                alice_key_rsa,
+                bob_key_rsa,
+            )
+            lab.track_energy_footprint(
+                "Sign+encrypt",
+                sign_and_encrypt_all,
+                mails,
+                alice_key_ecc,
+                bob_key_ecc,
+            )
     except Exception as err:
         logger.error("Error occured: " + str(err))
     except KeyboardInterrupt:
         logger.error("Caught a keyboard interrupt")
 
-    tracker.stop()
     logger.error("Experiment ends...")
 
 
