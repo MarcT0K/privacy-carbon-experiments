@@ -11,14 +11,22 @@ import colorlog
 from codecarbon import OfflineEmissionsTracker
 from concrete.ml.sklearn import (
     DecisionTreeClassifier,
+    DecisionTreeRegressor,
     # KNeighborsClassifier,
+    Lasso,
     LinearSVC,
+    LinearSVR,
+    LinearRegression,
     LogisticRegression,
     NeuralNetClassifier,
+    NeuralNetRegressor,
     RandomForestClassifier,
+    RandomForestRegressor,
+    Ridge,
     XGBClassifier,
+    XGBRegressor,
 )
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
 
@@ -132,17 +140,26 @@ class Laboratory:
             self.logger.error("Error during experiments!")
 
 
-def benchmark_classification_model(laboratory, model_class):
+def benchmark_model(laboratory, model_class, task="classification"):
     nb_features = 30
     nb_samples = 40  # FOR DEBUG: replace with 4000 afterwards
     test_sample_rate = 0.25
     nb_test_samples = nb_samples * test_sample_rate
 
-    X, y = make_classification(
-        n_features=nb_features,
-        random_state=2,
-        n_samples=nb_samples,
-    )
+    if task == "classification":
+        X, y = make_classification(
+            n_features=nb_features,
+            random_state=2,
+            n_samples=nb_samples,
+        )
+    elif task == "regression":
+        X, y = make_regression(
+            n_features=nb_features,
+            random_state=2,
+            n_samples=nb_samples,
+        )
+    else:
+        raise ValueError("Invalid ML task")
 
     # Retrieve train and test sets:
     X_train, X_test, y_train, y_test = train_test_split(
@@ -185,11 +202,11 @@ def benchmark_classification_model(laboratory, model_class):
     )
 
 
-def draw_figures(): ...
+def draw_figures(): ...  # TODO
 
 
 def experiment():
-    with Laboratory() as lab:
+    with Laboratory(csv_filename="classification_models.csv") as lab:
         lab.logger.info("Benchmarking the classification models")
         neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
         classif_models = [
@@ -202,12 +219,33 @@ def experiment():
             XGBClassifier,
         ]
         for model_class in classif_models:
-            benchmark_classification_model(lab, model_class)
+            benchmark_model(lab, model_class, task="classification")
 
+    with Laboratory(csv_filename="regression_models.csv") as lab:
         lab.logger.info("Benchmarking the regression models")
+        neural_net_class = partial(NeuralNetRegressor, module__n_layers=3)
+        reg_models = [
+            DecisionTreeRegressor,
+            Lasso,
+            LinearSVR,
+            LinearRegression,
+            NeuralNetRegressor,
+            RandomForestRegressor,
+            Ridge,
+            XGBRegressor,
+        ]
+        for model_class in reg_models:
+            benchmark_model(lab, model_class, task="regression")
 
+    with Laboratory(csv_filename="varying_nb_features.csv") as lab:
         lab.logger.info("Benchmarking the influence of the number of features")
         # Logistic regression, NN, RandomForrest
+        # TODO
+
+    with Laboratory(csv_filename="varying_nb_bits.csv") as lab:
+        lab.logger.info("Benchmarking the influence of the number of bits")
+        # Logistic regression, NN, RandomForrest
+        # TODO
 
     draw_figures()
 
