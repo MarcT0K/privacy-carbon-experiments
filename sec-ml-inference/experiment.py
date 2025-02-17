@@ -4,11 +4,20 @@ import logging
 import time
 
 from csv import DictWriter
+from functools import partial
 
 import colorlog
 
 from codecarbon import OfflineEmissionsTracker
-from concrete.ml.sklearn import LogisticRegression
+from concrete.ml.sklearn import (
+    DecisionTreeClassifier,
+    # KNeighborsClassifier,
+    LinearSVC,
+    LogisticRegression,
+    NeuralNetClassifier,
+    RandomForestClassifier,
+    XGBClassifier,
+)
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 
@@ -26,7 +35,7 @@ class Laboratory:
 
     def __init__(self, log_level=logging.DEBUG, csv_filename="results.csv"):
         self.tracker = OfflineEmissionsTracker(
-            measure_power_secs=10000,
+            measure_power_secs=1000,
             country_iso_code="FRA",
             output_file="raw_emissions.csv",
             log_level="error",
@@ -114,15 +123,18 @@ class Laboratory:
         self.started = True
         return self
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.tracker.stop()
         self.started = False
-        self.logger.info("Experiments end...")
+        if exc_type is None:
+            self.logger.info("Experiments end...")
+        else:  # Exception found
+            self.logger.error("Error during experiments!")
 
 
-def benchmark_model(laboratory, model_class):
+def benchmark_classification_model(laboratory, model_class):
     nb_features = 30
-    nb_samples = 4000
+    nb_samples = 40  # FOR DEBUG: replace with 4000 afterwards
     test_sample_rate = 0.25
     nb_test_samples = nb_samples * test_sample_rate
 
@@ -141,7 +153,7 @@ def benchmark_model(laboratory, model_class):
     model = model_class()
 
     experiment_info = {
-        "model": str(model)[:-2],
+        "model": type(model).__name__,
         "n_features": nb_features,
         "n_samples": nb_test_samples,
     }
@@ -173,9 +185,31 @@ def benchmark_model(laboratory, model_class):
     )
 
 
+def draw_figures(): ...
+
+
 def experiment():
     with Laboratory() as lab:
-        benchmark_model(lab, LogisticRegression)
+        lab.logger.info("Benchmarking the classification models")
+        neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
+        classif_models = [
+            DecisionTreeClassifier,
+            # KNeighborsClassifier, # Some parameter issues
+            LinearSVC,
+            LogisticRegression,
+            neural_net_class,
+            RandomForestClassifier,
+            XGBClassifier,
+        ]
+        for model_class in classif_models:
+            benchmark_classification_model(lab, model_class)
+
+        lab.logger.info("Benchmarking the regression models")
+
+        lab.logger.info("Benchmarking the influence of the number of features")
+        # Logistic regression, NN, RandomForrest
+
+    draw_figures()
 
 
 if __name__ == "__main__":
