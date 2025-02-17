@@ -10,7 +10,9 @@ logger = colorlog.getLogger()
 
 
 class Laboratory:
-    def __init__(self, log_level=logging.INFO):
+    FIELDNAMES = ["Experiment", "Energy", "Nb features", "Carbon"]
+
+    def __init__(self, log_level=logging.INFO, csv_filename="results.csv"):
         self.tracker = OfflineEmissionsTracker(
             measure_power_secs=5,
             country_iso_code="FRA",
@@ -21,9 +23,10 @@ class Laboratory:
         self.started = False
 
         # SETUP RESULT CSV
-        csv_file = open("results.csv", "w", encoding="utf-8")
-        writer = DictWriter(csv_file, fieldnames=["Experiment", "Energy", "Carbon"])
-        writer.writeheader()
+        self.filename = csv_filename
+        with open(csv_filename, "w", encoding="utf-8") as csv_file:
+            writer = DictWriter(csv_file, fieldnames=self.FIELDNAMES)
+            writer.writeheader()
 
         # SETUP LOGGER
         logger.handlers = []  # Reset handlers
@@ -72,6 +75,16 @@ class Laboratory:
         logger.info(f"Energy consumption: {energy_diff} KWh")
         logger.warning(experiment_name + " ends...")
 
+        with open(self.filename, "a", encoding="utf-8") as csv_file:
+            writer = DictWriter(csv_file, fieldnames=self.FIELDNAMES)
+            writer.writerow(
+                {
+                    "Experiment": experiment_name,
+                    "Energy": energy_diff,
+                    "Carbon": carbon_diff,
+                }
+            )
+
     def __enter__(self):
         self.tracker.start()
         self.started = True
@@ -83,7 +96,6 @@ class Laboratory:
 
 
 def experiment():
-    setup_logger()
     logger.info("Experiment begins...")
 
     logger.info("Experiment ends...")
