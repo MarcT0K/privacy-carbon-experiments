@@ -41,7 +41,7 @@ class Laboratory:
         "Carbon",
     ]
 
-    def __init__(self, log_level=logging.DEBUG, csv_filename="results.csv"):
+    def __init__(self, log_level=logging.DEBUG, experiment_name="experiments"):
         self.tracker = OfflineEmissionsTracker(
             measure_power_secs=1000,
             country_iso_code="FRA",
@@ -51,6 +51,8 @@ class Laboratory:
 
         self.started = False
 
+        csv_filename = experiment_name + ".csv"
+        log_filename = experiment_name + ".log"
         # SETUP RESULT CSV
         self.filename = csv_filename
         with open(csv_filename, "w", encoding="utf-8") as csv_file:
@@ -75,7 +77,7 @@ class Laboratory:
                 },
             )
         )
-        file_handler = logging.FileHandler("experiment.log")
+        file_handler = logging.FileHandler(log_filename)
         file_handler.setFormatter(
             logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
         )
@@ -206,7 +208,7 @@ def draw_figures(): ...  # TODO
 
 
 def experiment():
-    with Laboratory(csv_filename="classification_models.csv") as lab:
+    with Laboratory(experiment_name="classification_models") as lab:
         lab.logger.info("Benchmarking the classification models")
         neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
         classif_models = [
@@ -221,15 +223,13 @@ def experiment():
         for model_class in classif_models:
             benchmark_model(lab, model_class, task="classification")
 
-    with Laboratory(csv_filename="regression_models.csv") as lab:
+    with Laboratory(experiment_name="regression_models") as lab:
         lab.logger.info("Benchmarking the regression models")
-        neural_net_class = partial(NeuralNetRegressor, module__n_layers=3)
         reg_models = [
             DecisionTreeRegressor,
             Lasso,
             LinearSVR,
             LinearRegression,
-            NeuralNetRegressor,
             RandomForestRegressor,
             Ridge,
             XGBRegressor,
@@ -237,12 +237,12 @@ def experiment():
         for model_class in reg_models:
             benchmark_model(lab, model_class, task="regression")
 
-    with Laboratory(csv_filename="varying_nb_features.csv") as lab:
+    with Laboratory(experiment_name="varying_nb_features") as lab:
         lab.logger.info("Benchmarking the influence of the number of features")
         # Logistic regression, NN, RandomForrest
         # TODO
 
-    with Laboratory(csv_filename="varying_nb_bits.csv") as lab:
+    with Laboratory(experiment_name="varying_nb_bits") as lab:
         lab.logger.info("Benchmarking the influence of the number of bits")
         # Logistic regression, NN, RandomForrest
         # TODO
