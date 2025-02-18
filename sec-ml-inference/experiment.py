@@ -28,6 +28,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
 NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
+TEST_SAMPLE_RATE = 0.25
 
 
 class Laboratory:
@@ -144,8 +145,6 @@ class Laboratory:
 
 def generic_benchmark_model(laboratory, model_class, task="classification"):
     nb_features = 30
-    test_sample_rate = 0.25
-    nb_test_samples = NB_SAMPLES * test_sample_rate
 
     if task == "classification":
         X, y = make_classification(
@@ -164,7 +163,7 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
 
     # Retrieve train and test sets:
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_sample_rate, random_state=42
+        X, y, test_size=TEST_SAMPLE_RATE, random_state=42
     )
 
     # Instantiate the model:
@@ -173,7 +172,7 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
     experiment_info = {
         "model": type(model).__name__,
         "n_features": nb_features,
-        "n_samples": nb_test_samples,
+        "n_samples": y_test.shape[0],
     }
 
     laboratory.logger.info("Training model %s", experiment_info["model"])
@@ -207,21 +206,20 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
 
 def varying_nb_features(laboratory):
     neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
-    test_sample_rate = 0.25
-    nb_test_samples = NB_SAMPLES * test_sample_rate
 
-    X, y = make_classification(
-        n_features=nb_features,
-        random_state=2,
-        n_samples=NB_SAMPLES,
-    )
+    for nb_features in [5, 10, 20, 40, 50, 75, 100]:
+        laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
+        X, y = make_classification(
+            n_features=nb_features,
+            random_state=2,
+            n_samples=NB_SAMPLES,
+        )
 
-    # Retrieve train and test sets:
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_sample_rate, random_state=42
-    )
+        # Retrieve train and test sets:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=42
+        )
 
-    for nb_features in [5, 10, 15, 20, 30, 40, 50, 75, 100, 200, 300, 500, 800, 1000]:
         for model_class in [
             LogisticRegression,
             RandomForestClassifier,
@@ -233,7 +231,7 @@ def varying_nb_features(laboratory):
             experiment_info = {
                 "model": type(model).__name__,
                 "n_features": nb_features,
-                "n_samples": nb_test_samples,
+                "n_samples": y_test.shape[0],
             }
 
             laboratory.logger.info("Training model %s", experiment_info["model"])
@@ -266,11 +264,8 @@ def varying_nb_features(laboratory):
 
 def varying_nb_samples(laboratory):
     neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
-    nb_features = 40
-    for nb_samples in [40, 80, 120, 240, 480, 1000, 2000, 5000, 8000, 10000]:
-        test_sample_rate = 0.25
-        nb_test_samples = nb_samples * test_sample_rate
-
+    nb_features = 30
+    for nb_samples in [40, 100, 240, 500, 1000, 2000, 5000, 10000]:
         X, y = make_classification(
             n_features=nb_features,
             random_state=2,
@@ -279,8 +274,9 @@ def varying_nb_samples(laboratory):
 
         # Retrieve train and test sets:
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_sample_rate, random_state=42
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=42
         )
+        laboratory.logger.info("NUMBER OF SAMPLES: %d", y_test.shape[0])
 
         for model_class in [
             LogisticRegression,
@@ -293,7 +289,7 @@ def varying_nb_samples(laboratory):
             experiment_info = {
                 "model": type(model).__name__,
                 "n_features": nb_features,
-                "n_samples": nb_test_samples,
+                "n_samples": y_test.shape[0],
             }
 
             laboratory.logger.info("Training model %s", experiment_info["model"])
@@ -333,7 +329,6 @@ def experiment():
         neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
         classif_models = [
             DecisionTreeClassifier,
-            # KNeighborsClassifier, # Some parameter issues
             LinearSVC,
             LogisticRegression,
             neural_net_class,
