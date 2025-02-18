@@ -30,7 +30,7 @@ device = "cuda" if use_gpu_if_available and check_gpu_available() else "cpu"
 NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 TEST_SAMPLE_RATE = 0.25
 N_ITERATIONS = 15
-RANDOM_STATE = 1874616543741354
+RANDOM_STATE = 18746
 
 
 class Laboratory:
@@ -146,10 +146,10 @@ class Laboratory:
 
 
 def varying_nb_features(laboratory):
-    for nb_features in [5, 10, 20, 40, 50, 75, 100]:
+    for nb_features in [3, 4, 5, 6, 7, 8, 9, 10]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
-        for model_class in [SGDClassifier, SGDRegressor]:
-            if model_class == "classification":
+        for ml_task in ["classification", "classification"]:
+            if ml_task == "classification":
                 X, y = make_classification(
                     n_features=nb_features,
                     random_state=RANDOM_STATE,
@@ -157,7 +157,7 @@ def varying_nb_features(laboratory):
                 )
                 model_class = SklearnSGDClassifier
                 encrypted_model_class = SGDClassifier
-            elif model_class == "regression":
+            elif ml_task == "classification":
                 X, y = make_regression(
                     n_features=nb_features,
                     random_state=RANDOM_STATE,
@@ -210,12 +210,12 @@ def varying_nb_features(laboratory):
 
 
 def varying_nb_samples(laboratory):
-    nb_features = 30
-    for nb_samples in [40, 100, 240, 500, 1000, 2000, 5000, 10000]:
+    nb_features = 5
+    for nb_samples in [20, 30, 40, 50, 60, 70, 80, 90, 100]:
         laboratory.logger.info("NUMBER OF SAMPLES: %d", nb_samples)
 
-        for model_class in ["classification", "regression"]:
-            if model_class == "classification":
+        for ml_task in ["classification", "regression"]:
+            if ml_task == "classification":
                 X, y = make_classification(
                     n_features=nb_features,
                     random_state=RANDOM_STATE,
@@ -223,7 +223,7 @@ def varying_nb_samples(laboratory):
                 )
                 model_class = SklearnSGDClassifier
                 encrypted_model_class = SGDClassifier
-            elif model_class == "regression":
+            elif ml_task == "regression":
                 X, y = make_regression(
                     n_features=nb_features,
                     random_state=RANDOM_STATE,

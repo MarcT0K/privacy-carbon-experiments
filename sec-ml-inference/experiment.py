@@ -33,7 +33,7 @@ from sklearn.model_selection import train_test_split
 
 NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 TEST_SAMPLE_RATE = 0.25
-RANDOM_STATE = 15684031380035781554123631157
+RANDOM_STATE = 7568
 
 
 class Laboratory:
