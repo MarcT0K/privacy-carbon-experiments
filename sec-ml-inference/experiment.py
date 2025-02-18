@@ -1,4 +1,8 @@
-"""Secure ML inference experiment"""
+"""Secure ML inference experiment
+
+TAKING INSPIRATION FROM THE EXAMPLE GIVEN BY ZAMA:
+https://docs.zama.ai/concrete-ml/built-in-models/linear#example
+"""
 
 import logging
 import time
@@ -29,6 +33,7 @@ from sklearn.model_selection import train_test_split
 
 NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 TEST_SAMPLE_RATE = 0.25
+RANDOM_STATE = 15684031380035781554123631157
 
 
 class Laboratory:
@@ -149,13 +154,13 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
     if task == "classification":
         X, y = make_classification(
             n_features=nb_features,
-            random_state=2,
+            random_state=RANDOM_STATE,
             n_samples=NB_SAMPLES,
         )
     elif task == "regression":
         X, y = make_regression(
             n_features=nb_features,
-            random_state=2,
+            random_state=RANDOM_STATE,
             n_samples=NB_SAMPLES,
         )
     else:
@@ -163,7 +168,7 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
 
     # Retrieve train and test sets:
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SAMPLE_RATE, random_state=42
+        X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
     )
 
     # Instantiate the model:
@@ -211,13 +216,13 @@ def varying_nb_features(laboratory):
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         X, y = make_classification(
             n_features=nb_features,
-            random_state=2,
+            random_state=RANDOM_STATE,
             n_samples=NB_SAMPLES,
         )
 
         # Retrieve train and test sets:
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=TEST_SAMPLE_RATE, random_state=42
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
         )
 
         for model_class in [
@@ -268,13 +273,13 @@ def varying_nb_samples(laboratory):
     for nb_samples in [40, 100, 240, 500, 1000, 2000, 5000, 10000]:
         X, y = make_classification(
             n_features=nb_features,
-            random_state=2,
+            random_state=RANDOM_STATE,
             n_samples=nb_samples,
         )
 
         # Retrieve train and test sets:
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=TEST_SAMPLE_RATE, random_state=42
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
         )
         laboratory.logger.info("NUMBER OF SAMPLES: %d", y_test.shape[0])
 
