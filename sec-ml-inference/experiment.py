@@ -12,14 +12,12 @@ from codecarbon import OfflineEmissionsTracker
 from concrete.ml.sklearn import (
     DecisionTreeClassifier,
     DecisionTreeRegressor,
-    # KNeighborsClassifier,
     Lasso,
     LinearSVC,
     LinearSVR,
     LinearRegression,
     LogisticRegression,
     NeuralNetClassifier,
-    NeuralNetRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
     Ridge,
@@ -28,6 +26,8 @@ from concrete.ml.sklearn import (
 )
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
+
+NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 
 
 class Laboratory:
@@ -142,23 +142,22 @@ class Laboratory:
             self.logger.error("Error during experiments!")
 
 
-def benchmark_model(laboratory, model_class, task="classification"):
+def generic_benchmark_model(laboratory, model_class, task="classification"):
     nb_features = 30
-    nb_samples = 40  # FOR DEBUG: replace with 4000 afterwards
     test_sample_rate = 0.25
-    nb_test_samples = nb_samples * test_sample_rate
+    nb_test_samples = NB_SAMPLES * test_sample_rate
 
     if task == "classification":
         X, y = make_classification(
             n_features=nb_features,
             random_state=2,
-            n_samples=nb_samples,
+            n_samples=NB_SAMPLES,
         )
     elif task == "regression":
         X, y = make_regression(
             n_features=nb_features,
             random_state=2,
-            n_samples=nb_samples,
+            n_samples=NB_SAMPLES,
         )
     else:
         raise ValueError("Invalid ML task")
@@ -176,6 +175,8 @@ def benchmark_model(laboratory, model_class, task="classification"):
         "n_features": nb_features,
         "n_samples": nb_test_samples,
     }
+
+    laboratory.logger.info("Training model %s", experiment_info["model"])
 
     # Fit the model:
     model.fit(X_train, y_train)
@@ -204,6 +205,125 @@ def benchmark_model(laboratory, model_class, task="classification"):
     )
 
 
+def varying_nb_features(laboratory):
+    neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
+    test_sample_rate = 0.25
+    nb_test_samples = NB_SAMPLES * test_sample_rate
+
+    X, y = make_classification(
+        n_features=nb_features,
+        random_state=2,
+        n_samples=NB_SAMPLES,
+    )
+
+    # Retrieve train and test sets:
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_sample_rate, random_state=42
+    )
+
+    for nb_features in [5, 10, 15, 20, 30, 40, 50, 75, 100, 200, 300, 500, 800, 1000]:
+        for model_class in [
+            LogisticRegression,
+            RandomForestClassifier,
+            neural_net_class,
+        ]:
+            # Instantiate the model:
+            model = model_class()
+
+            experiment_info = {
+                "model": type(model).__name__,
+                "n_features": nb_features,
+                "n_samples": nb_test_samples,
+            }
+
+            laboratory.logger.info("Training model %s", experiment_info["model"])
+            # Fit the model:
+            model.fit(X_train, y_train)
+
+            # Evaluate the model on the test set in clear:
+            def plaintext_predict():
+                return model.predict(X_test)
+
+            laboratory.track_energy_footprint(
+                experiment_info=experiment_info,
+                encrypted=False,
+                experiment_function=plaintext_predict,
+            )
+
+            # Compile the model:
+            model.compile(X_train)
+
+            # Perform the inference in FHE:
+            def ciphertext_predict():
+                return model.predict(X_test, fhe="execute")
+
+            laboratory.track_energy_footprint(
+                experiment_info=experiment_info,
+                encrypted=True,
+                experiment_function=ciphertext_predict,
+            )
+
+
+def varying_nb_samples(laboratory):
+    neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
+    nb_features = 40
+    for nb_samples in [40, 80, 120, 240, 480, 1000, 2000, 5000, 8000, 10000]:
+        test_sample_rate = 0.25
+        nb_test_samples = nb_samples * test_sample_rate
+
+        X, y = make_classification(
+            n_features=nb_features,
+            random_state=2,
+            n_samples=nb_samples,
+        )
+
+        # Retrieve train and test sets:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_sample_rate, random_state=42
+        )
+
+        for model_class in [
+            LogisticRegression,
+            RandomForestClassifier,
+            neural_net_class,
+        ]:
+            # Instantiate the model:
+            model = model_class()
+
+            experiment_info = {
+                "model": type(model).__name__,
+                "n_features": nb_features,
+                "n_samples": nb_test_samples,
+            }
+
+            laboratory.logger.info("Training model %s", experiment_info["model"])
+            # Fit the model:
+            model.fit(X_train, y_train)
+
+            # Evaluate the model on the test set in clear:
+            def plaintext_predict():
+                return model.predict(X_test)
+
+            laboratory.track_energy_footprint(
+                experiment_info=experiment_info,
+                encrypted=False,
+                experiment_function=plaintext_predict,
+            )
+
+            # Compile the model:
+            model.compile(X_train)
+
+            # Perform the inference in FHE:
+            def ciphertext_predict():
+                return model.predict(X_test, fhe="execute")
+
+            laboratory.track_energy_footprint(
+                experiment_info=experiment_info,
+                encrypted=True,
+                experiment_function=ciphertext_predict,
+            )
+
+
 def draw_figures(): ...  # TODO
 
 
@@ -221,7 +341,7 @@ def experiment():
             XGBClassifier,
         ]
         for model_class in classif_models:
-            benchmark_model(lab, model_class, task="classification")
+            generic_benchmark_model(lab, model_class, task="classification")
 
     with Laboratory(experiment_name="regression_models") as lab:
         lab.logger.info("Benchmarking the regression models")
@@ -235,17 +355,15 @@ def experiment():
             XGBRegressor,
         ]
         for model_class in reg_models:
-            benchmark_model(lab, model_class, task="regression")
+            generic_benchmark_model(lab, model_class, task="regression")
 
     with Laboratory(experiment_name="varying_nb_features") as lab:
         lab.logger.info("Benchmarking the influence of the number of features")
-        # Logistic regression, NN, RandomForrest
-        # TODO
+        varying_nb_features(lab)
 
-    with Laboratory(experiment_name="varying_nb_bits") as lab:
-        lab.logger.info("Benchmarking the influence of the number of bits")
-        # Logistic regression, NN, RandomForrest
-        # TODO
+    with Laboratory(experiment_name="varying_nb_samples") as lab:
+        lab.logger.info("Benchmarking the influence of the number of samples")
+        varying_nb_samples(lab)
 
     draw_figures()
 
