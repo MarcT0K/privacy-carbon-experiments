@@ -35,9 +35,9 @@ class Laboratory:
         "Carbon",
     ]
 
-    def __init__(self, log_level=logging.DEBUG, experiment_name="experiments"):
+    def __init__(self, log_level=logging.INFO, experiment_name="experiments"):
         self.tracker = OfflineEmissionsTracker(
-            measure_power_secs=5,
+            measure_power_secs=1000,
             country_iso_code="FRA",
             output_file="raw_emissions.csv",
             log_level="error",
@@ -98,10 +98,10 @@ class Laboratory:
         energy_diff = end_energy - begin_energy
         time_diff = end_time - begin_time
 
-        logger.debug("Cost summary:")
-        logger.debug("Carbon footprint: %f KgCO2e", carbon_diff)
-        logger.debug("Energy consumption: %f KWh", energy_diff)
-        logger.debug("Duration: %f s", time_diff)
+        logger.info("Cost summary:")
+        logger.info("Carbon footprint: %f KgCO2e", carbon_diff)
+        logger.info("Energy consumption: %f KWh", energy_diff)
+        logger.info("Duration: %f s", time_diff)
         logger.info("%s ends...", experiment_name)
 
         with open(self.filename, "a", encoding="utf-8") as csv_file:
