@@ -1,3 +1,6 @@
 colorlog
-scikit-learn
 concrete-ml
+matplotlib
+numpy
+pandas
+scikit-learn

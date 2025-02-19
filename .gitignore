@@ -1,6 +1,7 @@
 *.log
 *.csv
 *.bak
+*.png
 
 # Enron mail directory
 sec-messaging/maildir

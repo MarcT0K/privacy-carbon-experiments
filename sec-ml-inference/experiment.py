@@ -8,9 +8,14 @@ import logging
 import time
 
 from csv import DictWriter
+from cycler import cycler
 from functools import partial
 
+
 import colorlog
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 from codecarbon import OfflineEmissionsTracker
 from concrete.ml.sklearn import (
@@ -34,6 +39,35 @@ from sklearn.model_selection import train_test_split
 NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 TEST_SAMPLE_RATE = 0.25
 RANDOM_STATE = 7568
+
+# FIGURE TEMPLATE
+params = {
+    "text.usetex": True,
+    "font.size": 15,
+    "axes.labelsize": 22,
+    "axes.grid": True,
+    "grid.linestyle": "dashed",
+    "grid.alpha": 0.7,
+    "scatter.marker": "x",
+}
+plt.style.use("seaborn-v0_8-colorblind")
+plt.rc(
+    "axes",
+    prop_cycle=(
+        plt.rcParams["axes.prop_cycle"]
+        + cycler("linestyle", ["-", "--", "-.", ":", "-", "-"])
+    ),
+)
+
+texture_1 = {"hatch": "/"}
+texture_2 = {"hatch": "."}
+texture_3 = {"hatch": "\\"}
+texture_4 = {"hatch": "x"}
+texture_5 = {"hatch": "o"}
+plt.rcParams.update(params)
+
+prop_cycle = plt.rcParams["axes.prop_cycle"]
+colors = prop_cycle.by_key()["color"]
 
 
 class Laboratory:
@@ -325,7 +359,182 @@ def varying_nb_samples(laboratory):
             )
 
 
-def draw_figures(): ...  # TODO
+def draw_figures():
+    nb_test_samples = NB_SAMPLES * TEST_SAMPLE_RATE
+    ### CLASSIFICATION ###
+    results = pd.read_csv("classification_models.csv")
+    classif_models = [
+        "Logistic\nRegression",
+        "Linear\nSVM",
+        "Decision\nTree",
+        "Random\nForest",
+        "XGB",
+        "Neural\nNetwork",
+    ]
+    for col_name, label in [
+        ("Energy", "Average Energy\nConsumption (kWh)"),
+        ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+        ("Duration", "Runtime (s)"),
+    ]:
+        # We extract the average cost per sample
+        plaintext_models = [
+            float(results[results["Model"] == "LogisticRegression"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "LinearSVC"][col_name]) / nb_test_samples,
+            float(results[results["Model"] == "DecisionTreeClassifier"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "RandomForestClassifier"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "XGBClassifier"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "NeuralNetClassifier"][col_name])
+            / nb_test_samples,
+        ]
+        encrypted_models = [
+            float(results[results["Model"] == "Encrypted LogisticRegression"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted LinearSVC"][col_name])
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "Encrypted DecisionTreeClassifier"][
+                    col_name
+                ]
+            )
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "Encrypted RandomForestClassifier"][
+                    col_name
+                ]
+            )
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted XGBClassifier"][col_name])
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "Encrypted NeuralNetClassifier"][col_name]
+            )
+            / nb_test_samples,
+        ]
+
+        x = np.arange(len(classif_models))  # the label locations
+        width = 0.4  # the width of the bars
+
+        fig, ax = plt.subplots()
+        fig.set_figwidth(9)
+        rects1 = ax.bar(
+            x - 0.5 * width,
+            plaintext_models,
+            width,
+            capsize=4,
+            label="Plaintext inference",
+            **texture_1,
+        )
+        rects2 = ax.bar(
+            x + 0.5 * width,
+            encrypted_models,
+            width,
+            capsize=4,
+            label="Encrypted inference",
+            **texture_2,
+        )
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set(xlabel="Classifiction models", ylabel=label)
+        ax.set_xticks(x)
+        ax.set_xticklabels(classif_models)
+        ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.98)
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color="gray", linestyle="dashed")
+        ax.set_yscale("log")
+        fig.tight_layout()
+        fig.savefig(f"classification_models_{col_name.lower()}.png", dpi=400)
+
+    ### REGRESSION ###
+    results = pd.read_csv("regression_models.csv")
+    regression_models = [
+        "Logistic\nRegression",
+        "Ridge\nRegression",
+        "Lasso",
+        "Linear\nSVM",
+        "Decision\nTree",
+        "Random\nForest",
+        "XGB",
+    ]
+    for col_name, label in [
+        ("Energy", "Average Energy\nConsumption (kWh)"),
+        ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+        ("Duration", "Runtime (s)"),
+    ]:
+        # We extract the average cost per sample
+        plaintext_models = [
+            float(results[results["Model"] == "LinearRegression"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "Ridge"][col_name]) / nb_test_samples,
+            float(results[results["Model"] == "Lasso"][col_name]) / nb_test_samples,
+            float(results[results["Model"] == "LinearSVR"][col_name]) / nb_test_samples,
+            float(results[results["Model"] == "DecisionTreeRegressor"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "RandomForestRegressor"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "XGBRegressor"][col_name])
+            / nb_test_samples,
+        ]
+        encrypted_models = [
+            float(results[results["Model"] == "Encrypted LinearRegression"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted Ridge"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted Lasso"][col_name])
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted LinearSVR"][col_name])
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "Encrypted DecisionTreeRegressor"][col_name]
+            )
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "Encrypted RandomForestRegressor"][col_name]
+            )
+            / nb_test_samples,
+            float(results[results["Model"] == "Encrypted XGBRegressor"][col_name])
+            / nb_test_samples,
+        ]
+
+        x = np.arange(len(regression_models))  # the label locations
+        width = 0.4  # the width of the bars
+
+        fig, ax = plt.subplots()
+        fig.set_figwidth(9)
+        rects1 = ax.bar(
+            x - 0.5 * width,
+            plaintext_models,
+            width,
+            capsize=4,
+            label="Plaintext inference",
+            **texture_1,
+        )
+        rects2 = ax.bar(
+            x + 0.5 * width,
+            encrypted_models,
+            width,
+            capsize=4,
+            label="Encrypted inference",
+            **texture_2,
+        )
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set(xlabel="Regression models", ylabel=label)
+        ax.set_xticks(x)
+        ax.set_xticklabels(classif_models)
+        ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.98)
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color="gray", linestyle="dashed")
+        ax.set_yscale("log")
+        fig.tight_layout()
+        fig.savefig(f"regression_models_{col_name.lower()}.png", dpi=400)
+
+    ### VARYING FEATURES ###
+
+    ### VARYING SAMPLES ###
 
 
 def experiment():
