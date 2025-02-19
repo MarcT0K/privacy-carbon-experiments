@@ -524,7 +524,7 @@ def draw_figures():
         # Add some text for labels, title and custom x-axis tick labels, etc.
         ax.set(xlabel="Regression models", ylabel=label)
         ax.set_xticks(x)
-        ax.set_xticklabels(classif_models)
+        ax.set_xticklabels(regression_models)
         ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.98)
         ax.set_axisbelow(True)
         ax.yaxis.grid(color="gray", linestyle="dashed")

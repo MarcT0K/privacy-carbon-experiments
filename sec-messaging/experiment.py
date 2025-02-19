@@ -7,10 +7,13 @@ import logging
 import time
 
 from csv import DictWriter
+from cycler import cycler
 
 import colorlog
-import pandas as pd
 import gnupg
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import pgpy
 import tqdm
 
@@ -25,6 +28,37 @@ from pgpy.constants import (
 )
 
 logger = colorlog.getLogger()
+
+NB_MAILS = 30109
+
+# FIGURE TEMPLATE
+params = {
+    "text.usetex": True,
+    "font.size": 15,
+    "axes.labelsize": 22,
+    "axes.grid": True,
+    "grid.linestyle": "dashed",
+    "grid.alpha": 0.7,
+    "scatter.marker": "x",
+}
+plt.style.use("seaborn-v0_8-colorblind")
+plt.rc(
+    "axes",
+    prop_cycle=(
+        plt.rcParams["axes.prop_cycle"]
+        + cycler("linestyle", ["-", "--", "-.", ":", "-", "-"])
+    ),
+)
+
+texture_1 = {"hatch": "/"}
+texture_2 = {"hatch": "."}
+texture_3 = {"hatch": "\\"}
+texture_4 = {"hatch": "x"}
+texture_5 = {"hatch": "o"}
+plt.rcParams.update(params)
+
+prop_cycle = plt.rcParams["axes.prop_cycle"]
+colors = prop_cycle.by_key()["color"]
 
 
 class Laboratory:
@@ -158,7 +192,7 @@ def gnupg_generate_keys(key_type):
     # Key size: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     if key_type == "RSA":
         key_params = {"key_type": "RSA", "key_length": 3072}
-    elif key_type == "ECC":
+    elif key_type == "ECDSA":
         key_params = {
             "key_type": "ECDSA",
             "key_curve": "nistp256",
@@ -240,7 +274,7 @@ def pgpy_generate_keys(key_type):
     if key_type == "RSA":
         alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
         bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
-    elif key_type == "ECC":
+    elif key_type == "ECDSA":
         alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
         bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
     else:
@@ -322,47 +356,111 @@ def pgpy_sign_and_encrypt_all(mails, sender_key, recv_key):
         recv_key.encrypt(body)
 
 
+def draw_figures():
+    results = pd.read_csv("experiments.csv")
+    operations = ["GNUPG RSA", "GNUPG ECDSA", "PGPy RSA", "PGPy ECDSA"]
+    for col_name, label in [
+        ("Energy", "Average Energy\nConsumption (kWh)"),
+        ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+        ("Duration", "Runtime (s)"),
+    ]:
+        # We extract the average cost per mail
+        encryption_costs = [
+            float(results[results["Experiment"] == (ope + " Encrypt")][col_name])
+            / NB_MAILS
+            for ope in operations
+        ]
+        signature_costs = [
+            float(results[results["Experiment"] == (ope + " Sign")][col_name])
+            / NB_MAILS
+            for ope in operations
+        ]
+
+        x = np.arange(len(operations))  # the label locations
+        width = 0.4  # the width of the bars
+
+        fig, ax = plt.subplots()
+        fig.set_figwidth(9)
+        rects1 = ax.bar(
+            x - 0.5 * width,
+            encryption_costs,
+            width,
+            capsize=4,
+            label="Encryption",
+            **texture_1,
+        )
+        rects2 = ax.bar(
+            x + 0.5 * width,
+            signature_costs,
+            width,
+            capsize=4,
+            label="Signature",
+            **texture_2,
+        )
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set(xlabel="Ciphers", ylabel=label)
+        ax.set_xticks(x)
+        ax.set_xticklabels(operations)
+        ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.98)
+        ax.set_axisbelow(True)
+        ax.yaxis.grid(color="gray", linestyle="dashed")
+        ax.set_yscale("log")
+        fig.tight_layout()
+        fig.savefig(f"pgp_{col_name.lower()}.png", dpi=400)
+
+
 def experiment():
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
-    assert len(mails) == 30109
+    assert len(mails) == NB_MAILS
 
     with Laboratory() as lab:
         logger.info("Benchmarking GNUPG implementation")
         logger.info("Generating cryptographic keys")
         alice_key_rsa, bob_key_rsa = gnupg_generate_keys("RSA")
-        alice_key_ecc, bob_key_ecc = gnupg_generate_keys("ECC")
+        alice_key_ecdsa, bob_key_ecdsa = gnupg_generate_keys("ECDSA")
         lab.track_energy_footprint(
-            "GNUPG Encrypt RSA", gnupg_encrypt_all, mails, alice_key_rsa, bob_key_rsa
+            "GNUPG RSA Encrypt", gnupg_encrypt_all, mails, alice_key_rsa, bob_key_rsa
         )
         lab.track_energy_footprint(
-            "GNUPG Encrypt ECC", gnupg_encrypt_all, mails, alice_key_ecc, bob_key_ecc
+            "GNUPG ECDSA Encrypt",
+            gnupg_encrypt_all,
+            mails,
+            alice_key_ecdsa,
+            bob_key_ecdsa,
         )
 
         lab.track_energy_footprint(
-            "GNUPG Sign RSA", gnupg_sign_all, mails, alice_key_rsa, bob_key_rsa
+            "GNUPG RSA Sign", gnupg_sign_all, mails, alice_key_rsa, bob_key_rsa
         )
         lab.track_energy_footprint(
-            "GNUPG Sign ECC", gnupg_sign_all, mails, alice_key_ecc, bob_key_ecc
+            "GNUPG ECDSA Sign", gnupg_sign_all, mails, alice_key_ecdsa, bob_key_ecdsa
         )
 
         logger.info("Benchmarking PGPy implementation")
         logger.info("Generating cryptographic keys")
         alice_key_rsa, bob_key_rsa = pgpy_generate_keys("RSA")
-        alice_key_ecc, bob_key_ecc = pgpy_generate_keys("ECC")
+        alice_key_ecdsa, bob_key_ecdsa = pgpy_generate_keys("ECDSA")
         lab.track_energy_footprint(
-            "PGPy Encrypt RSA", pgpy_encrypt_all, mails, alice_key_rsa, bob_key_rsa
+            "PGPy RSA Encrypt", pgpy_encrypt_all, mails, alice_key_rsa, bob_key_rsa
         )
         lab.track_energy_footprint(
-            "PGPy Encrypt ECC", pgpy_encrypt_all, mails, alice_key_ecc, bob_key_ecc
+            "PGPy ECDSA Encrypt",
+            pgpy_encrypt_all,
+            mails,
+            alice_key_ecdsa,
+            bob_key_ecdsa,
         )
 
         lab.track_energy_footprint(
-            "PGPy Sign RSA", pgpy_sign_all, mails, alice_key_rsa, bob_key_rsa
+            "PGPy RSA Sign", pgpy_sign_all, mails, alice_key_rsa, bob_key_rsa
         )
         lab.track_energy_footprint(
-            "PGPy Sign ECC", pgpy_sign_all, mails, alice_key_ecc, bob_key_ecc
+            "PGPy ECDSA Sign", pgpy_sign_all, mails, alice_key_ecdsa, bob_key_ecdsa
         )
+
+    draw_figures()
 
 
 if __name__ == "__main__":
