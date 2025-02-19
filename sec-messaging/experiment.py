@@ -204,7 +204,7 @@ def gnupg_sign_all(mails, sender_key, recv_key):
     communication_overhead = 0
 
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
+        iterable=mails.itertuples(), desc="Sign only", total=len(mails)
     ):
         signed = sender_key.gpg.sign(row_tuple.mail_body, keyid=sender_keyid)
         communication_overhead += len(signed.data) - len(row_tuple.mail_body.encode())
@@ -214,7 +214,7 @@ def gnupg_sign_all(mails, sender_key, recv_key):
 def gnupg_sign_and_encrypt_all(mails, sender_key, recv_key):
     communication_overhead = 0
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
     ):
         enc_msg = sender_key.gpg.encrypt(
             row_tuple.mail_body, [recv_key.fingerprint], sign=sender_key.fingerprint
@@ -228,7 +228,7 @@ def gnupg_sign_and_encrypt_all(mails, sender_key, recv_key):
 def gnupg_encrypt_all(mails, sender_key, recv_key):
     communication_overhead = 0
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Encrypt only", total=len(mails)
+        iterable=mails.itertuples(), desc="Encrypt only", total=len(mails)
     ):
         enc_msg = sender_key.gpg.encrypt(row_tuple.mail_body, [recv_key.fingerprint])
         decrypted = recv_key.gpg.decrypt(enc_msg.data)
@@ -299,7 +299,7 @@ def pgpy_generate_keys(key_type):
 def pgpy_sign_all(mails, sender_key, _recv_key):
 
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
+        iterable=mails.itertuples(), desc="Sign only", total=len(mails)
     ):
         body = pgpy.PGPMessage.new(row_tuple.mail_body)
         sender_key.sign(body)
@@ -307,14 +307,14 @@ def pgpy_sign_all(mails, sender_key, _recv_key):
 
 def pgpy_encrypt_all(mails, sender_key, recv_key):
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
     ):
         recv_key.encrypt(row_tuple.mail_body)
 
 
 def pgpy_sign_and_encrypt_all(mails, sender_key, recv_key):
     for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
     ):
         body = pgpy.PGPMessage.new(row_tuple.mail_body)
         body |= sender_key.sign(body)  # Sign and append the signature
