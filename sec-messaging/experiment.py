@@ -108,7 +108,7 @@ class Laboratory:
             writer = DictWriter(csv_file, fieldnames=self.FIELDNAMES)
             writer.writerow(
                 {
-                    "Model": experiment_name,
+                    "Experiment": experiment_name,
                     "Energy": energy_diff,
                     "Carbon": carbon_diff,
                     "Duration": time_diff,
