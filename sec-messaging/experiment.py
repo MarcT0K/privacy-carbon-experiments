@@ -346,21 +346,6 @@ def experiment():
             "GNUPG Sign ECC", gnupg_sign_all, mails, alice_key_ecc, bob_key_ecc
         )
 
-        lab.track_energy_footprint(
-            "GNUPG Sign+encrypt RSA",
-            gnupg_sign_and_encrypt_all,
-            mails,
-            alice_key_rsa,
-            bob_key_rsa,
-        )
-        lab.track_energy_footprint(
-            "GNUPG Sign+encrypt ECC",
-            gnupg_sign_and_encrypt_all,
-            mails,
-            alice_key_ecc,
-            bob_key_ecc,
-        )
-
         logger.info("Benchmarking PGPy implementation")
         logger.info("Generating cryptographic keys")
         alice_key_rsa, bob_key_rsa = pgpy_generate_keys("RSA")
@@ -377,21 +362,6 @@ def experiment():
         )
         lab.track_energy_footprint(
             "PGPy Sign ECC", pgpy_sign_all, mails, alice_key_ecc, bob_key_ecc
-        )
-
-        lab.track_energy_footprint(
-            "PGPy Sign+encrypt RSA",
-            pgpy_sign_and_encrypt_all,
-            mails,
-            alice_key_rsa,
-            bob_key_rsa,
-        )
-        lab.track_energy_footprint(
-            "PGPy Sign+encrypt ECC",
-            pgpy_sign_and_encrypt_all,
-            mails,
-            alice_key_ecc,
-            bob_key_ecc,
         )
 
 
