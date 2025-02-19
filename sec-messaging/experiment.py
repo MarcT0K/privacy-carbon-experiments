@@ -4,23 +4,38 @@ import email
 import glob
 import os
 import logging
+import time
 
 from csv import DictWriter
 
 import colorlog
 import pandas as pd
 import gnupg
-
-# TODO: add sequoia pgp
+import pgpy
 import tqdm
 
 from codecarbon import OfflineEmissionsTracker
+from pgpy.constants import (
+    EllipticCurveOID,
+    PubKeyAlgorithm,
+    KeyFlags,
+    HashAlgorithm,
+    SymmetricKeyAlgorithm,
+    CompressionAlgorithm,
+)
 
 logger = colorlog.getLogger()
 
 
 class Laboratory:
-    def __init__(self, log_level=logging.INFO):
+    FIELDNAMES = [
+        "Experiment",
+        "Duration",
+        "Energy",
+        "Carbon",
+    ]
+
+    def __init__(self, log_level=logging.DEBUG, experiment_name="experiments"):
         self.tracker = OfflineEmissionsTracker(
             measure_power_secs=5,
             country_iso_code="FRA",
@@ -29,10 +44,13 @@ class Laboratory:
         )
 
         self.started = False
+        csv_filename = experiment_name + ".csv"
+        csv_filename = experiment_name + ".log"
 
         # SETUP RESULT CSV
-        csv_file = open("results.csv", "w", encoding="utf-8")
-        writer = DictWriter(csv_file, fieldnames=["Experiment", "Energy", "Carbon"])
+        self.filename = csv_filename
+        csv_file = open(self.filename, "w", encoding="utf-8")
+        writer = DictWriter(csv_file, fieldnames=self.FIELDNAMES)
         writer.writeheader()
 
         # SETUP LOGGER
@@ -52,7 +70,7 @@ class Laboratory:
                 },
             )
         )
-        file_handler = logging.FileHandler("experiment.log")
+        file_handler = logging.FileHandler(csv_filename)
         file_handler.setFormatter(
             logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
         )
@@ -67,29 +85,49 @@ class Laboratory:
 
         begin_emission = self.tracker.flush()
         begin_energy = self.tracker._total_energy.kWh
+        begin_time = time.time()
 
-        logger.warning(experiment_name + " begins")
+        logger.info("%s begins", experiment_name)
         experiment_function(*args, **kwargs)
 
         end_emission = self.tracker.flush()
         end_energy = self.tracker._total_energy.kWh
+        end_time = time.time()
 
         carbon_diff = end_emission - begin_emission
         energy_diff = end_energy - begin_energy
+        time_diff = end_time - begin_time
 
-        logger.info("Cost summary:")
-        logger.info(f"Carbon footprint: {carbon_diff} KgCO2e")
-        logger.info(f"Energy consumption: {energy_diff} KWh")
-        logger.warning(experiment_name + " ends...")
+        logger.debug("Cost summary:")
+        logger.debug("Carbon footprint: %f KgCO2e", carbon_diff)
+        logger.debug("Energy consumption: %f KWh", energy_diff)
+        logger.debug("Duration: %f s", time_diff)
+        logger.info("%s ends...", experiment_name)
+
+        with open(self.filename, "a", encoding="utf-8") as csv_file:
+            writer = DictWriter(csv_file, fieldnames=self.FIELDNAMES)
+            writer.writerow(
+                {
+                    "Model": experiment_name,
+                    "Energy": energy_diff,
+                    "Carbon": carbon_diff,
+                    "Duration": time_diff,
+                }
+            )
 
     def __enter__(self):
+        logger.info("Experiments begin...")
         self.tracker.start()
         self.started = True
         return self
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.tracker.stop()
         self.started = False
+        if exc_type is None:
+            logger.info("Experiments end...")
+        else:  # Exception found
+            logger.error("Error during experiments!")
 
 
 def get_body_from_enron_email(mail):
@@ -116,7 +154,7 @@ def extract_enron_sent_emails(maildir_directory="maildir/") -> pd.DataFrame:
     return pd.DataFrame(data={"filename": mails, "mail_body": mail_contents})
 
 
-def generate_keys(key_type):
+def gnupg_generate_keys(key_type):
     # Key size: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     if key_type == "RSA":
         key_params = {"key_type": "RSA", "key_length": 3072}
@@ -155,7 +193,7 @@ def generate_keys(key_type):
     return alice_key, bob_key
 
 
-def sign_all(mails, sender_key, recv_key):
+def gnupg_sign_all(mails, sender_key, recv_key):
     sender_keyid = None
     for key_dict in sender_key.gpg.list_keys():
         if key_dict["fingerprint"] == sender_key.fingerprint:
@@ -172,10 +210,8 @@ def sign_all(mails, sender_key, recv_key):
         communication_overhead += len(signed.data) - len(row_tuple.mail_body.encode())
         assert recv_key.gpg.verify(signed.data)
 
-    logger.info(f"Communication overhead: {communication_overhead} bytes")
 
-
-def sign_and_encrypt_all(mails, sender_key, recv_key):
+def gnupg_sign_and_encrypt_all(mails, sender_key, recv_key):
     communication_overhead = 0
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
@@ -188,10 +224,8 @@ def sign_and_encrypt_all(mails, sender_key, recv_key):
         assert decrypted.valid  # verified signature
         communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
 
-    logger.info(f"Communication overhead: {communication_overhead} bytes")
 
-
-def encrypt_all(mails, sender_key, recv_key):
+def gnupg_encrypt_all(mails, sender_key, recv_key):
     communication_overhead = 0
     for row_tuple in tqdm.tqdm(
         iterable=mails.itertuples(), desc=f"Encrypt only", total=len(mails)
@@ -200,56 +234,165 @@ def encrypt_all(mails, sender_key, recv_key):
         decrypted = recv_key.gpg.decrypt(enc_msg.data)
         assert decrypted.data.decode() == row_tuple.mail_body
         communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
-    logger.info(f"Communication overhead: {communication_overhead} bytes")
+
+
+def pgpy_generate_keys(key_type):
+    if key_type == "RSA":
+        alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+        bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
+    elif key_type == "ECC":
+        alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
+        bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
+    else:
+        raise NotImplementedError
+
+    alice_uid = pgpy.PGPUID.new(
+        "Alice", comment="Alice (sender)", email="alice@example.com"
+    )
+    alice_key.add_uid(
+        alice_uid,
+        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
+        hashes=[
+            HashAlgorithm.SHA256,
+            HashAlgorithm.SHA384,
+            HashAlgorithm.SHA512,
+            HashAlgorithm.SHA224,
+        ],
+        ciphers=[
+            SymmetricKeyAlgorithm.AES256,
+            SymmetricKeyAlgorithm.AES192,
+            SymmetricKeyAlgorithm.AES128,
+        ],
+        compression=[
+            CompressionAlgorithm.ZLIB,
+            CompressionAlgorithm.BZ2,
+            CompressionAlgorithm.ZIP,
+            CompressionAlgorithm.Uncompressed,
+        ],
+    )
+
+    bob_uid = pgpy.PGPUID.new("Bob", comment="Bob (receiver)", email="bob@example.com")
+    bob_key.add_uid(
+        bob_uid,
+        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
+        hashes=[
+            HashAlgorithm.SHA256,
+            HashAlgorithm.SHA384,
+            HashAlgorithm.SHA512,
+            HashAlgorithm.SHA224,
+        ],
+        ciphers=[
+            SymmetricKeyAlgorithm.AES256,
+            SymmetricKeyAlgorithm.AES192,
+            SymmetricKeyAlgorithm.AES128,
+        ],
+        compression=[
+            CompressionAlgorithm.ZLIB,
+            CompressionAlgorithm.BZ2,
+            CompressionAlgorithm.ZIP,
+            CompressionAlgorithm.Uncompressed,
+        ],
+    )
+    return alice_key, bob_key
+
+
+def pgpy_sign_all(mails, sender_key, _recv_key):
+
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign only", total=len(mails)
+    ):
+        body = pgpy.PGPMessage.new(row_tuple.mail_body)
+        sender_key.sign(body)
+
+
+def pgpy_encrypt_all(mails, sender_key, recv_key):
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+    ):
+        recv_key.encrypt(row_tuple.mail_body)
+
+
+def pgpy_sign_and_encrypt_all(mails, sender_key, recv_key):
+    for row_tuple in tqdm.tqdm(
+        iterable=mails.itertuples(), desc=f"Sign+Encrypt", total=len(mails)
+    ):
+        body = pgpy.PGPMessage.new(row_tuple.mail_body)
+        body |= sender_key.sign(body)  # Sign and append the signature
+
+        recv_key.encrypt(body)
 
 
 def experiment():
-    logger.error("Experiment begins...")
-
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
     assert len(mails) == 30109
 
-    logger.warning("Generating cryptographic keys")
-    alice_key_rsa, bob_key_rsa = generate_keys("RSA")
-    alice_key_ecc, bob_key_ecc = generate_keys("ECC")
+    with Laboratory() as lab:
+        logger.info("Benchmarking GNUPG implementation")
+        logger.info("Generating cryptographic keys")
+        alice_key_rsa, bob_key_rsa = gnupg_generate_keys("RSA")
+        alice_key_ecc, bob_key_ecc = gnupg_generate_keys("ECC")
+        lab.track_energy_footprint(
+            "GNUPG Encrypt RSA", gnupg_encrypt_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        lab.track_energy_footprint(
+            "GNUPG Encrypt ECC", gnupg_encrypt_all, mails, alice_key_ecc, bob_key_ecc
+        )
 
-    try:
-        with Laboratory() as lab:
-            lab.track_energy_footprint(
-                "Encrypt RSA", encrypt_all, mails, alice_key_rsa, bob_key_rsa
-            )
-            lab.track_energy_footprint(
-                "Encrypt ECC", encrypt_all, mails, alice_key_ecc, bob_key_ecc
-            )
+        lab.track_energy_footprint(
+            "GNUPG Sign RSA", gnupg_sign_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        lab.track_energy_footprint(
+            "GNUPG Sign ECC", gnupg_sign_all, mails, alice_key_ecc, bob_key_ecc
+        )
 
-            lab.track_energy_footprint(
-                "Sign RSA", sign_all, mails, alice_key_rsa, bob_key_rsa
-            )
-            lab.track_energy_footprint(
-                "Sign ECC", sign_all, mails, alice_key_ecc, bob_key_ecc
-            )
+        lab.track_energy_footprint(
+            "GNUPG Sign+encrypt RSA",
+            gnupg_sign_and_encrypt_all,
+            mails,
+            alice_key_rsa,
+            bob_key_rsa,
+        )
+        lab.track_energy_footprint(
+            "GNUPG Sign+encrypt ECC",
+            gnupg_sign_and_encrypt_all,
+            mails,
+            alice_key_ecc,
+            bob_key_ecc,
+        )
 
-            lab.track_energy_footprint(
-                "Sign+encrypt",
-                sign_and_encrypt_all,
-                mails,
-                alice_key_rsa,
-                bob_key_rsa,
-            )
-            lab.track_energy_footprint(
-                "Sign+encrypt",
-                sign_and_encrypt_all,
-                mails,
-                alice_key_ecc,
-                bob_key_ecc,
-            )
-    except Exception as err:
-        logger.error("Error occured: " + str(err))
-    except KeyboardInterrupt:
-        logger.error("Caught a keyboard interrupt")
+        logger.info("Benchmarking PGPy implementation")
+        logger.info("Generating cryptographic keys")
+        alice_key_rsa, bob_key_rsa = pgpy_generate_keys("RSA")
+        alice_key_ecc, bob_key_ecc = pgpy_generate_keys("ECC")
+        lab.track_energy_footprint(
+            "PGPy Encrypt RSA", pgpy_encrypt_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        lab.track_energy_footprint(
+            "PGPy Encrypt ECC", pgpy_encrypt_all, mails, alice_key_ecc, bob_key_ecc
+        )
 
-    logger.error("Experiment ends...")
+        lab.track_energy_footprint(
+            "PGPy Sign RSA", pgpy_sign_all, mails, alice_key_rsa, bob_key_rsa
+        )
+        lab.track_energy_footprint(
+            "PGPy Sign ECC", pgpy_sign_all, mails, alice_key_ecc, bob_key_ecc
+        )
+
+        lab.track_energy_footprint(
+            "PGPy Sign+encrypt RSA",
+            pgpy_sign_and_encrypt_all,
+            mails,
+            alice_key_rsa,
+            bob_key_rsa,
+        )
+        lab.track_energy_footprint(
+            "PGPy Sign+encrypt ECC",
+            pgpy_sign_and_encrypt_all,
+            mails,
+            alice_key_ecc,
+            bob_key_ecc,
+        )
 
 
 if __name__ == "__main__":

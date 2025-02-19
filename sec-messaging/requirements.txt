@@ -3,3 +3,4 @@ tqdm
 colorlog
 codecarbon
 python-gnupg
+PGPy
