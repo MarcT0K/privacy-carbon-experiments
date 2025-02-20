@@ -36,7 +36,7 @@ from concrete.ml.sklearn import (
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
+NB_SAMPLES = 400
 TEST_SAMPLE_RATE = 0.25
 RANDOM_STATE = 7568
 

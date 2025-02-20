@@ -30,7 +30,7 @@ from sklearn.model_selection import train_test_split
 use_gpu_if_available = False
 device = "cuda" if use_gpu_if_available and check_gpu_available() else "cpu"
 
-NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
+NB_SAMPLES = 400
 TEST_SAMPLE_RATE = 0.25
 N_ITERATIONS = 15
 RANDOM_STATE = 18746
