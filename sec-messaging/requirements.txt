@@ -3,7 +3,6 @@ tqdm
 colorlog
 codecarbon
 python-gnupg
-PGPy
 numpy
 cycler
 matplotlib

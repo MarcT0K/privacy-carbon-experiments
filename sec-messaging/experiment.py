@@ -14,18 +14,9 @@ import gnupg
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pgpy
 import tqdm
 
 from codecarbon import OfflineEmissionsTracker
-from pgpy.constants import (
-    EllipticCurveOID,
-    PubKeyAlgorithm,
-    KeyFlags,
-    HashAlgorithm,
-    SymmetricKeyAlgorithm,
-    CompressionAlgorithm,
-)
 
 logger = colorlog.getLogger()
 
@@ -41,12 +32,12 @@ params = {
     "grid.alpha": 0.7,
     "scatter.marker": "x",
 }
-plt.style.use("seaborn-v0_8-colorblind")
+plt.style.use("tableau-colorblind10")
 plt.rc(
     "axes",
     prop_cycle=(
         plt.rcParams["axes.prop_cycle"]
-        + cycler("linestyle", ["-", "--", "-.", ":", "-", "-"])
+        + cycler("linestyle", ["-", "--", "-.", ":", "-", "--", "-.", ":", "-", "--"])
     ),
 )
 
@@ -79,7 +70,7 @@ class Laboratory:
 
         self.started = False
         csv_filename = experiment_name + ".csv"
-        csv_filename = experiment_name + ".log"
+        log_filename = experiment_name + ".log"
 
         # SETUP RESULT CSV
         self.filename = csv_filename
@@ -104,7 +95,7 @@ class Laboratory:
                 },
             )
         )
-        file_handler = logging.FileHandler(csv_filename)
+        file_handler = logging.FileHandler(log_filename)
         file_handler.setFormatter(
             logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
         )
@@ -275,12 +266,14 @@ def draw_figures():
     ]:
         # We extract the average cost per mail
         encryption_costs = [
-            float(results[results["Experiment"] == (ope + " Encrypt")][col_name])
+            float(
+                results[results["Experiment"] == (ope + " Encrypt")][col_name].iloc[0]
+            )
             / NB_MAILS
             for ope in operations
         ]
         signature_costs = [
-            float(results[results["Experiment"] == (ope + " Sign")][col_name])
+            float(results[results["Experiment"] == (ope + " Sign")][col_name].iloc[0])
             / NB_MAILS
             for ope in operations
         ]
@@ -325,17 +318,17 @@ def experiment():
     assert len(mails) == NB_MAILS
     mails = mails[:100]
 
-    with Laboratory() as lab:
-        logger.info("Benchmarking implementation")
-        logger.info("Generating cryptographic keys")
-        for cipher in ["RSA", "ECC", "ElGamal"]:
-            alice_key, bob_key = gnupg_generate_keys(cipher)
-            lab.track_energy_footprint(
-                f"{cipher} Encrypt", gnupg_encrypt_all, mails, alice_key, bob_key
-            )
-            lab.track_energy_footprint(
-                f"{cipher} Sign", gnupg_sign_all, mails, alice_key, bob_key
-            )
+    # with Laboratory() as lab:
+    #     logger.info("Benchmarking implementation")
+    #     logger.info("Generating cryptographic keys")
+    #     for cipher in ["RSA", "ECC", "ElGamal"]:
+    #         alice_key, bob_key = gnupg_generate_keys(cipher)
+    #         lab.track_energy_footprint(
+    #             f"{cipher} Encrypt", gnupg_encrypt_all, mails, alice_key, bob_key
+    #         )
+    #         lab.track_energy_footprint(
+    #             f"{cipher} Sign", gnupg_sign_all, mails, alice_key, bob_key
+    #         )
 
     draw_figures()
 

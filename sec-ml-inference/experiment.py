@@ -50,12 +50,12 @@ params = {
     "grid.alpha": 0.7,
     "scatter.marker": "x",
 }
-plt.style.use("seaborn-v0_8-colorblind")
+plt.style.use("tableau-colorblind10")
 plt.rc(
     "axes",
     prop_cycle=(
         plt.rcParams["axes.prop_cycle"]
-        + cycler("linestyle", ["-", "--", "-.", ":", "-", "-"])
+        + cycler("linestyle", ["-", "--", "-.", ":", "-", "--", "-.", ":", "-", "--"])
     ),
 )
 
@@ -378,39 +378,52 @@ def draw_figures():
     ]:
         # We extract the average cost per sample
         plaintext_models = [
-            float(results[results["Model"] == "LogisticRegression"][col_name])
+            float(results[results["Model"] == "LogisticRegression"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "LinearSVC"][col_name]) / nb_test_samples,
-            float(results[results["Model"] == "DecisionTreeClassifier"][col_name])
+            float(results[results["Model"] == "LinearSVC"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "RandomForestClassifier"][col_name])
+            float(
+                results[results["Model"] == "DecisionTreeClassifier"][col_name].iloc[0]
+            )
             / nb_test_samples,
-            float(results[results["Model"] == "XGBClassifier"][col_name])
+            float(
+                results[results["Model"] == "RandomForestClassifier"][col_name].iloc[0]
+            )
             / nb_test_samples,
-            float(results[results["Model"] == "NeuralNetClassifier"][col_name])
+            float(results[results["Model"] == "XGBClassifier"][col_name].iloc[0])
+            / nb_test_samples,
+            float(results[results["Model"] == "NeuralNetClassifier"][col_name].iloc[0])
             / nb_test_samples,
         ]
         encrypted_models = [
-            float(results[results["Model"] == "Encrypted LogisticRegression"][col_name])
+            float(
+                results[results["Model"] == "Encrypted LogisticRegression"][
+                    col_name
+                ].iloc[0]
+            )
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted LinearSVC"][col_name])
+            float(results[results["Model"] == "Encrypted LinearSVC"][col_name].iloc[0])
             / nb_test_samples,
             float(
                 results[results["Model"] == "Encrypted DecisionTreeClassifier"][
                     col_name
-                ]
+                ].iloc[0]
             )
             / nb_test_samples,
             float(
                 results[results["Model"] == "Encrypted RandomForestClassifier"][
                     col_name
-                ]
+                ].iloc[0]
             )
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted XGBClassifier"][col_name])
+            float(
+                results[results["Model"] == "Encrypted XGBClassifier"][col_name].iloc[0]
+            )
             / nb_test_samples,
             float(
-                results[results["Model"] == "Encrypted NeuralNetClassifier"][col_name]
+                results[results["Model"] == "Encrypted NeuralNetClassifier"][
+                    col_name
+                ].iloc[0]
             )
             / nb_test_samples,
         ]
