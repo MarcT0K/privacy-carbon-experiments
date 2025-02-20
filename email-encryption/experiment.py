@@ -1,4 +1,4 @@
-"""Secure messaging experiment"""
+"""Email encryption experiment"""
 
 import email
 import glob
