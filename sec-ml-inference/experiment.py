@@ -47,7 +47,7 @@ params = {
     "axes.labelsize": 22,
     "axes.grid": True,
     "grid.linestyle": "dashed",
-    "grid.alpha": 0.7,
+    "grid.alpha": 0.5,
     "scatter.marker": "x",
 }
 plt.style.use("tableau-colorblind10")
@@ -246,7 +246,7 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
 def varying_nb_features(laboratory):
     neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
 
-    for nb_features in [5, 10, 20, 40, 50, 75, 100]:
+    for nb_features in [5, 10, 20, 40, 50, 75, 100, 200, 500]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         X, y = make_classification(
             n_features=nb_features,
@@ -479,36 +479,53 @@ def draw_figures():
     ]:
         # We extract the average cost per sample
         plaintext_models = [
-            float(results[results["Model"] == "LinearRegression"][col_name])
+            float(results[results["Model"] == "LinearRegression"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "Ridge"][col_name]) / nb_test_samples,
-            float(results[results["Model"] == "Lasso"][col_name]) / nb_test_samples,
-            float(results[results["Model"] == "LinearSVR"][col_name]) / nb_test_samples,
-            float(results[results["Model"] == "DecisionTreeRegressor"][col_name])
+            float(results[results["Model"] == "Ridge"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "RandomForestRegressor"][col_name])
+            float(results[results["Model"] == "Lasso"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "XGBRegressor"][col_name])
+            float(results[results["Model"] == "LinearSVR"][col_name].iloc[0])
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "DecisionTreeRegressor"][col_name].iloc[0]
+            )
+            / nb_test_samples,
+            float(
+                results[results["Model"] == "RandomForestRegressor"][col_name].iloc[0]
+            )
+            / nb_test_samples,
+            float(results[results["Model"] == "XGBRegressor"][col_name].iloc[0])
             / nb_test_samples,
         ]
         encrypted_models = [
-            float(results[results["Model"] == "Encrypted LinearRegression"][col_name])
+            float(
+                results[results["Model"] == "Encrypted LinearRegression"][
+                    col_name
+                ].iloc[0]
+            )
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted Ridge"][col_name])
+            float(results[results["Model"] == "Encrypted Ridge"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted Lasso"][col_name])
+            float(results[results["Model"] == "Encrypted Lasso"][col_name].iloc[0])
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted LinearSVR"][col_name])
+            float(results[results["Model"] == "Encrypted LinearSVR"][col_name].iloc[0])
             / nb_test_samples,
             float(
-                results[results["Model"] == "Encrypted DecisionTreeRegressor"][col_name]
+                results[results["Model"] == "Encrypted DecisionTreeRegressor"][
+                    col_name
+                ].iloc[0]
             )
             / nb_test_samples,
             float(
-                results[results["Model"] == "Encrypted RandomForestRegressor"][col_name]
+                results[results["Model"] == "Encrypted RandomForestRegressor"][
+                    col_name
+                ].iloc[0]
             )
             / nb_test_samples,
-            float(results[results["Model"] == "Encrypted XGBRegressor"][col_name])
+            float(
+                results[results["Model"] == "Encrypted XGBRegressor"][col_name].iloc[0]
+            )
             / nb_test_samples,
         ]
 
@@ -545,9 +562,41 @@ def draw_figures():
         fig.tight_layout()
         fig.savefig(f"regression_models_{col_name.lower()}.png", dpi=400)
 
-    ### VARYING FEATURES ###
+    ### VARYING FEATURES/SAMPLES ###
+    for variable in ["features", "samples"]:
+        results = pd.read_csv(f"varying_nb_{variable}.csv")
+        for col_name, label in [
+            ("Energy", "Average Energy\nConsumption (kWh)"),
+            ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+            ("Duration", "Runtime (s)"),
+        ]:
+            fig, ax = plt.subplots()
+            for model, model_label in [
+                ("LogisticRegression", "Logistic Regression"),
+                ("RandomForestClassifier", "Random Forest"),
+                ("NeuralNetClassifier", "Neural Net"),
+            ]:
+                model_results = results[results["Model"] == model]
+                x = list(model_results[f"Nb {variable}"])
+                y = list(model_results[col_name])
+                assert len(x) != 0 and len(y) != 0
+                ax.plot(x, y, label=model_label, marker="x")
 
-    ### VARYING SAMPLES ###
+                encrypted_model_results = results[
+                    results["Model"] == "Encrypted " + model
+                ]
+                x = list(encrypted_model_results[f"Nb {variable}"])
+                y = list(encrypted_model_results[col_name])
+                ax.plot(x, y, label=model_label + " [encrypted]", marker="o")
+
+            # Add some text for labels, title and custom x-axis tick labels, etc.
+            ax.set(xlabel=f"Number of {variable}", ylabel=label)
+            ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.80)
+            ax.set_axisbelow(True)
+            ax.yaxis.grid(color="gray", linestyle="dashed")
+            ax.set_yscale("log")
+            fig.tight_layout()
+            fig.savefig(f"varying_nb_{variable}_{col_name.lower()}.png", dpi=400)
 
 
 def experiment():

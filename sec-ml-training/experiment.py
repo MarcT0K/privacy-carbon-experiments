@@ -8,8 +8,11 @@ import logging
 import time
 
 from csv import DictWriter
+from cycler import cycler
 
 import colorlog
+import matplotlib.pyplot as plt
+import pandas as pd
 
 from codecarbon import OfflineEmissionsTracker
 from concrete.compiler import check_gpu_available
@@ -31,6 +34,35 @@ NB_SAMPLES = 40  # FOR DEBUG: replace with 4000 afterwards
 TEST_SAMPLE_RATE = 0.25
 N_ITERATIONS = 15
 RANDOM_STATE = 18746
+
+# FIGURE TEMPLATE
+params = {
+    "text.usetex": True,
+    "font.size": 15,
+    "axes.labelsize": 22,
+    "axes.grid": True,
+    "grid.linestyle": "dashed",
+    "grid.alpha": 0.5,
+    "scatter.marker": "x",
+}
+plt.style.use("tableau-colorblind10")
+plt.rc(
+    "axes",
+    prop_cycle=(
+        plt.rcParams["axes.prop_cycle"]
+        + cycler("linestyle", ["-", "--", "-.", ":", "-", "--", "-.", ":", "-", "--"])
+    ),
+)
+
+texture_1 = {"hatch": "/"}
+texture_2 = {"hatch": "."}
+texture_3 = {"hatch": "\\"}
+texture_4 = {"hatch": "x"}
+texture_5 = {"hatch": "o"}
+plt.rcParams.update(params)
+
+prop_cycle = plt.rcParams["axes.prop_cycle"]
+colors = prop_cycle.by_key()["color"]
 
 
 class Laboratory:
@@ -275,17 +307,47 @@ def varying_nb_samples(laboratory):
             )
 
 
-def draw_figures(): ...  # TODO
+def draw_figures():
+    for variable in ["features", "samples"]:
+        results = pd.read_csv(f"varying_nb_{variable}.csv")
+        for col_name, label in [
+            ("Energy", "Average Energy\nConsumption (kWh)"),
+            ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+            ("Duration", "Runtime (s)"),
+        ]:
+            fig, ax = plt.subplots()
+
+            model = "SGDClassifier"
+
+            model_results = results[results["Model"] == model]
+            x = list(model_results[f"Nb {variable}"])
+            y = list(model_results[col_name])
+            assert len(x) != 0 and len(y) != 0
+            ax.plot(x, y, label="In plaintext", marker="x")
+
+            encrypted_model_results = results[results["Model"] == "Encrypted " + model]
+            x = list(encrypted_model_results[f"Nb {variable}"])
+            y = list(encrypted_model_results[col_name])
+            ax.plot(x, y, label="Under encryption", marker="o")
+
+            # Add some text for labels, title and custom x-axis tick labels, etc.
+            ax.set(xlabel=f"Number of {variable}", ylabel=label)
+            ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.80)
+            ax.set_axisbelow(True)
+            ax.yaxis.grid(color="gray", linestyle="dashed")
+            ax.set_yscale("log")
+            fig.tight_layout()
+            fig.savefig(f"varying_nb_{variable}_{col_name.lower()}.png", dpi=400)
 
 
 def experiment():
-    with Laboratory(experiment_name="varying_nb_features") as lab:
-        lab.logger.info("Benchmarking the influence of the number of features")
-        varying_nb_features(lab)
+    # with Laboratory(experiment_name="varying_nb_features") as lab:
+    #     lab.logger.info("Benchmarking the influence of the number of features")
+    #     varying_nb_features(lab)
 
-    with Laboratory(experiment_name="varying_nb_samples") as lab:
-        lab.logger.info("Benchmarking the influence of the number of samples")
-        varying_nb_samples(lab)
+    # with Laboratory(experiment_name="varying_nb_samples") as lab:
+    #     lab.logger.info("Benchmarking the influence of the number of samples")
+    #     varying_nb_samples(lab)
 
     draw_figures()
 
