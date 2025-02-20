@@ -192,12 +192,21 @@ def gnupg_generate_keys(key_type):
     # Key size: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     if key_type == "RSA":
         key_params = {"key_type": "RSA", "key_length": 3072}
-    elif key_type == "ECDSA":
+    elif key_type == "ECC":
         key_params = {
             "key_type": "ECDSA",
             "key_curve": "nistp256",
             "subkey_type": "ECDH",
             "subkey_curve": "nistp256",
+        }
+    elif key_type == "ElGamal":
+        key_params = {
+            "key_type": "DSA",  # Signing with DSA
+            "key_length": 3072,
+            "key_usage": "sign",
+            "subkey_type": "ELG",  # ElGamal for encryption
+            "subkey_length": 3072,
+            "subkey_usage": "encrypt",
         }
     else:
         raise NotImplementedError
@@ -245,20 +254,6 @@ def gnupg_sign_all(mails, sender_key, recv_key):
         assert recv_key.gpg.verify(signed.data)
 
 
-def gnupg_sign_and_encrypt_all(mails, sender_key, recv_key):
-    communication_overhead = 0
-    for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
-    ):
-        enc_msg = sender_key.gpg.encrypt(
-            row_tuple.mail_body, [recv_key.fingerprint], sign=sender_key.fingerprint
-        )
-        decrypted = recv_key.gpg.decrypt(enc_msg.data)
-        assert decrypted.data.decode() == row_tuple.mail_body
-        assert decrypted.valid  # verified signature
-        communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
-
-
 def gnupg_encrypt_all(mails, sender_key, recv_key):
     communication_overhead = 0
     for row_tuple in tqdm.tqdm(
@@ -270,95 +265,9 @@ def gnupg_encrypt_all(mails, sender_key, recv_key):
         communication_overhead += len(enc_msg.data) - len(row_tuple.mail_body.encode())
 
 
-def pgpy_generate_keys(key_type):
-    if key_type == "RSA":
-        alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
-        bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.RSAEncryptOrSign, 3072)
-    elif key_type == "ECDSA":
-        alice_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
-        bob_key = pgpy.PGPKey.new(PubKeyAlgorithm.ECDSA, EllipticCurveOID.NIST_P256)
-    else:
-        raise NotImplementedError
-
-    alice_uid = pgpy.PGPUID.new(
-        "Alice", comment="Alice (sender)", email="alice@example.com"
-    )
-    alice_key.add_uid(
-        alice_uid,
-        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
-        hashes=[
-            HashAlgorithm.SHA256,
-            HashAlgorithm.SHA384,
-            HashAlgorithm.SHA512,
-            HashAlgorithm.SHA224,
-        ],
-        ciphers=[
-            SymmetricKeyAlgorithm.AES256,
-            SymmetricKeyAlgorithm.AES192,
-            SymmetricKeyAlgorithm.AES128,
-        ],
-        compression=[
-            CompressionAlgorithm.ZLIB,
-            CompressionAlgorithm.BZ2,
-            CompressionAlgorithm.ZIP,
-            CompressionAlgorithm.Uncompressed,
-        ],
-    )
-
-    bob_uid = pgpy.PGPUID.new("Bob", comment="Bob (receiver)", email="bob@example.com")
-    bob_key.add_uid(
-        bob_uid,
-        usage={KeyFlags.Sign, KeyFlags.EncryptCommunications, KeyFlags.EncryptStorage},
-        hashes=[
-            HashAlgorithm.SHA256,
-            HashAlgorithm.SHA384,
-            HashAlgorithm.SHA512,
-            HashAlgorithm.SHA224,
-        ],
-        ciphers=[
-            SymmetricKeyAlgorithm.AES256,
-            SymmetricKeyAlgorithm.AES192,
-            SymmetricKeyAlgorithm.AES128,
-        ],
-        compression=[
-            CompressionAlgorithm.ZLIB,
-            CompressionAlgorithm.BZ2,
-            CompressionAlgorithm.ZIP,
-            CompressionAlgorithm.Uncompressed,
-        ],
-    )
-    return alice_key, bob_key
-
-
-def pgpy_sign_all(mails, sender_key, _recv_key):
-
-    for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc="Sign only", total=len(mails)
-    ):
-        body = pgpy.PGPMessage.new(row_tuple.mail_body)
-        sender_key.sign(body)
-
-
-def pgpy_encrypt_all(mails, sender_key, recv_key):
-    for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
-    ):
-        recv_key.encrypt(row_tuple.mail_body)
-
-
-def pgpy_sign_and_encrypt_all(mails, sender_key, recv_key):
-    for row_tuple in tqdm.tqdm(
-        iterable=mails.itertuples(), desc="Sign+Encrypt", total=len(mails)
-    ):
-        body = pgpy.PGPMessage.new(row_tuple.mail_body)
-        body |= sender_key.sign(body)  # Sign and append the signature
-
-        recv_key.encrypt(body)
-
-
 def draw_figures():
     results = pd.read_csv("experiments.csv")
-    operations = ["GNUPG RSA", "GNUPG ECDSA", "PGPy RSA", "PGPy ECDSA"]
+    operations = ["RSA", "ECC", "ElGamal"]
     for col_name, label in [
         ("Energy", "Average Energy\nConsumption (kWh)"),
         ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
@@ -414,51 +323,19 @@ def experiment():
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
     assert len(mails) == NB_MAILS
+    mails = mails[:100]
 
     with Laboratory() as lab:
-        logger.info("Benchmarking GNUPG implementation")
+        logger.info("Benchmarking implementation")
         logger.info("Generating cryptographic keys")
-        alice_key_rsa, bob_key_rsa = gnupg_generate_keys("RSA")
-        alice_key_ecdsa, bob_key_ecdsa = gnupg_generate_keys("ECDSA")
-        lab.track_energy_footprint(
-            "GNUPG RSA Encrypt", gnupg_encrypt_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        lab.track_energy_footprint(
-            "GNUPG ECDSA Encrypt",
-            gnupg_encrypt_all,
-            mails,
-            alice_key_ecdsa,
-            bob_key_ecdsa,
-        )
-
-        lab.track_energy_footprint(
-            "GNUPG RSA Sign", gnupg_sign_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        lab.track_energy_footprint(
-            "GNUPG ECDSA Sign", gnupg_sign_all, mails, alice_key_ecdsa, bob_key_ecdsa
-        )
-
-        logger.info("Benchmarking PGPy implementation")
-        logger.info("Generating cryptographic keys")
-        alice_key_rsa, bob_key_rsa = pgpy_generate_keys("RSA")
-        alice_key_ecdsa, bob_key_ecdsa = pgpy_generate_keys("ECDSA")
-        lab.track_energy_footprint(
-            "PGPy RSA Encrypt", pgpy_encrypt_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        lab.track_energy_footprint(
-            "PGPy ECDSA Encrypt",
-            pgpy_encrypt_all,
-            mails,
-            alice_key_ecdsa,
-            bob_key_ecdsa,
-        )
-
-        lab.track_energy_footprint(
-            "PGPy RSA Sign", pgpy_sign_all, mails, alice_key_rsa, bob_key_rsa
-        )
-        lab.track_energy_footprint(
-            "PGPy ECDSA Sign", pgpy_sign_all, mails, alice_key_ecdsa, bob_key_ecdsa
-        )
+        for cipher in ["RSA", "ECC", "ElGamal"]:
+            alice_key, bob_key = gnupg_generate_keys(cipher)
+            lab.track_energy_footprint(
+                f"{cipher} Encrypt", gnupg_encrypt_all, mails, alice_key, bob_key
+            )
+            lab.track_energy_footprint(
+                f"{cipher} Sign", gnupg_sign_all, mails, alice_key, bob_key
+            )
 
     draw_figures()
 
