@@ -316,19 +316,18 @@ def experiment():
     logger.warning("Extracting Enron emails")
     mails = extract_enron_sent_emails()
     assert len(mails) == NB_MAILS
-    mails = mails[:100]
 
-    # with Laboratory() as lab:
-    #     logger.info("Benchmarking implementation")
-    #     logger.info("Generating cryptographic keys")
-    #     for cipher in ["RSA", "ECC", "ElGamal"]:
-    #         alice_key, bob_key = gnupg_generate_keys(cipher)
-    #         lab.track_energy_footprint(
-    #             f"{cipher} Encrypt", gnupg_encrypt_all, mails, alice_key, bob_key
-    #         )
-    #         lab.track_energy_footprint(
-    #             f"{cipher} Sign", gnupg_sign_all, mails, alice_key, bob_key
-    #         )
+    with Laboratory() as lab:
+        logger.info("Benchmarking implementation")
+        logger.info("Generating cryptographic keys")
+        for cipher in ["RSA", "ECC", "ElGamal"]:
+            alice_key, bob_key = gnupg_generate_keys(cipher)
+            lab.track_energy_footprint(
+                f"{cipher} Encrypt", gnupg_encrypt_all, mails, alice_key, bob_key
+            )
+            lab.track_energy_footprint(
+                f"{cipher} Sign", gnupg_sign_all, mails, alice_key, bob_key
+            )
 
     draw_figures()
 
