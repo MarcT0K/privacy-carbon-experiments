@@ -5,11 +5,12 @@ https://docs.zama.ai/concrete-ml/built-in-models/linear#example
 """
 
 import logging
+import signal
 import time
 
 from csv import DictWriter
 from cycler import cycler
-from functools import partial
+from functools import partial, wraps
 
 
 import colorlog
@@ -69,6 +70,25 @@ prop_cycle = plt.rcParams["axes.prop_cycle"]
 colors = prop_cycle.by_key()["color"]
 
 
+def timeout(seconds=3600):
+    def decorator(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutError()
+
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.setitimer(signal.ITIMER_REAL, seconds)  # used timer instead of alarm
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+
+        return wraps(func)(wrapper)
+
+    return decorator
+
+
 class Laboratory:
     FIELDNAMES = [
         "Model",
@@ -124,6 +144,7 @@ class Laboratory:
         self.logger.addHandler(handler)
         self.logger.setLevel(log_level)
 
+    @timeout()
     def track_energy_footprint(
         self, experiment_info, encrypted, experiment_function, *args, **kwargs
     ):
@@ -245,6 +266,17 @@ def generic_benchmark_model(laboratory, model_class, task="classification"):
 def varying_nb_features(laboratory):
     neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
 
+    model_timeout = {
+        LogisticRegression: False,
+        RandomForestClassifier: False,
+        neural_net_class: False,
+    }
+    encrypted_model_timeout = {
+        LogisticRegression: False,
+        RandomForestClassifier: False,
+        neural_net_class: False,
+    }
+
     for nb_features in [5, 10, 20, 40, 50, 75, 100, 200, 500]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         X, y = make_classification(
@@ -258,11 +290,7 @@ def varying_nb_features(laboratory):
             X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
         )
 
-        for model_class in [
-            LogisticRegression,
-            RandomForestClassifier,
-            neural_net_class,
-        ]:
+        for model_class, _ in model_timeout.items():
             # Instantiate the model:
             model = model_class()
 
@@ -285,6 +313,20 @@ def varying_nb_features(laboratory):
                 encrypted=False,
                 experiment_function=plaintext_predict,
             )
+            try:
+                if not model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=False,
+                        experiment_function=plaintext_predict,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping plaintext experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[model_class] = True
 
             # Compile the model:
             model.compile(X_train)
@@ -293,16 +335,37 @@ def varying_nb_features(laboratory):
             def ciphertext_predict():
                 return model.predict(X_test, fhe="execute")
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=True,
-                experiment_function=ciphertext_predict,
-            )
+            try:
+                if not encrypted_model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=True,
+                        experiment_function=ciphertext_predict,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping encrypted experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                encrypted_model_timeout[model_class] = True
 
 
 def varying_nb_samples(laboratory):
     neural_net_class = partial(NeuralNetClassifier, module__n_layers=3)
     nb_features = 30
+
+    model_timeout = {
+        LogisticRegression: False,
+        RandomForestClassifier: False,
+        neural_net_class: False,
+    }
+    encrypted_model_timeout = {
+        LogisticRegression: False,
+        RandomForestClassifier: False,
+        neural_net_class: False,
+    }
+
     for nb_samples in [40, 100, 240, 500, 1000, 2000, 5000, 10000]:
         X, y = make_classification(
             n_features=nb_features,
@@ -316,11 +379,7 @@ def varying_nb_samples(laboratory):
         )
         laboratory.logger.info("NUMBER OF SAMPLES: %d", y_test.shape[0])
 
-        for model_class in [
-            LogisticRegression,
-            RandomForestClassifier,
-            neural_net_class,
-        ]:
+        for model_class, _ in model_timeout.items():
             # Instantiate the model:
             model = model_class()
 
@@ -338,11 +397,20 @@ def varying_nb_samples(laboratory):
             def plaintext_predict():
                 return model.predict(X_test)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=False,
-                experiment_function=plaintext_predict,
-            )
+            try:
+                if not model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=False,
+                        experiment_function=plaintext_predict,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping plaintext experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[model_class] = True
 
             # Compile the model:
             model.compile(X_train)
@@ -351,11 +419,20 @@ def varying_nb_samples(laboratory):
             def ciphertext_predict():
                 return model.predict(X_test, fhe="execute")
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=True,
-                experiment_function=ciphertext_predict,
-            )
+            try:
+                if not encrypted_model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=True,
+                        experiment_function=ciphertext_predict,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping encrypted experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                encrypted_model_timeout[model_class] = True
 
 
 def draw_figures():
