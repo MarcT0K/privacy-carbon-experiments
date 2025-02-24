@@ -1,4 +1,5 @@
 colorlog
+codecarbon
 scikit-learn
 concrete-ml
 cycler

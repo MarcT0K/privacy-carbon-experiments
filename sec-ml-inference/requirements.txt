@@ -1,4 +1,5 @@
 colorlog
+codecarbon
 concrete-ml
 matplotlib
 numpy
