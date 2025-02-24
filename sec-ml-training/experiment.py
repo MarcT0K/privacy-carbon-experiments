@@ -5,10 +5,12 @@ https://github.com/zama-ai/concrete-ml/blob/release/1.8.x/docs/advanced_examples
 """
 
 import logging
+import signal
 import time
 
 from csv import DictWriter
 from cycler import cycler
+from functools import wraps
 
 import colorlog
 import matplotlib.pyplot as plt
@@ -62,6 +64,25 @@ plt.rcParams.update(params)
 
 prop_cycle = plt.rcParams["axes.prop_cycle"]
 colors = prop_cycle.by_key()["color"]
+
+
+def timeout(seconds=7200):
+    def decorator(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutError()
+
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.setitimer(signal.ITIMER_REAL, seconds)  # used timer instead of alarm
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+
+        return wraps(func)(wrapper)
+
+    return decorator
 
 
 class Laboratory:
@@ -119,6 +140,7 @@ class Laboratory:
         self.logger.addHandler(handler)
         self.logger.setLevel(log_level)
 
+    @timeout()
     def track_energy_footprint(
         self, experiment_info, encrypted, experiment_function, *args, **kwargs
     ):
@@ -177,6 +199,13 @@ class Laboratory:
 
 
 def varying_nb_features(laboratory):
+    model_timeout = {
+        SklearnSGDClassifier: False,
+        SGDClassifier: False,
+        SklearnSGDRegressor: False,
+        SGDRegressor: False,
+    }
+
     for nb_features in [3, 4, 5, 6, 7, 8, 9, 10]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         for ml_task in ["classification", "classification"]:
@@ -223,24 +252,48 @@ def varying_nb_features(laboratory):
             def plaintext_train():
                 model.fit(X_train, y_train)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=False,
-                experiment_function=plaintext_train,
-            )
+            try:
+                if not model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=False,
+                        experiment_function=plaintext_train,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping plaintext experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[model_class] = True
 
             # Perform the training in FHE:
             def ciphertext_train():
                 encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=True,
-                experiment_function=ciphertext_train,
-            )
+            try:
+                if not model_timeout[encrypted_model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=True,
+                        experiment_function=ciphertext_train,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping encrypted experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[encrypted_model_class] = True
 
 
 def varying_nb_samples(laboratory):
+    model_timeout = {
+        SklearnSGDClassifier: False,
+        SGDClassifier: False,
+        SklearnSGDRegressor: False,
+        SGDRegressor: False,
+    }
     nb_features = 5
     for nb_samples in [20, 30, 40, 50, 60, 70, 80, 90, 100]:
         laboratory.logger.info("NUMBER OF SAMPLES: %d", nb_samples)
@@ -289,21 +342,39 @@ def varying_nb_samples(laboratory):
             def plaintext_train():
                 model.fit(X_train, y_train)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=False,
-                experiment_function=plaintext_train,
-            )
+            try:
+                if not model_timeout[model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=False,
+                        experiment_function=plaintext_train,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping plaintext experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[model_class] = True
 
             # Perform the training in FHE:
             def ciphertext_train():
                 encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=True,
-                experiment_function=ciphertext_train,
-            )
+            try:
+                if not model_timeout[encrypted_model_class]:
+                    laboratory.track_energy_footprint(
+                        experiment_info=experiment_info,
+                        encrypted=True,
+                        experiment_function=ciphertext_train,
+                    )
+                else:
+                    laboratory.logger.warning(
+                        "Skipping encrypted experiment (due to a previous timeout)"
+                    )
+            except TimeoutError:
+                laboratory.logger.error("Timeout error...")
+                model_timeout[encrypted_model_class] = True
 
 
 def draw_figures():
