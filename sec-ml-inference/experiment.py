@@ -42,7 +42,6 @@ RANDOM_STATE = 7568
 
 # FIGURE TEMPLATE
 params = {
-    "text.usetex": True,
     "font.size": 15,
     "axes.labelsize": 22,
     "axes.grid": True,
@@ -373,7 +372,7 @@ def draw_figures():
     ]
     for col_name, label in [
         ("Energy", "Average Energy\nConsumption (kWh)"),
-        ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+        ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
         ("Duration", "Runtime (s)"),
     ]:
         # We extract the average cost per sample
@@ -474,7 +473,7 @@ def draw_figures():
     ]
     for col_name, label in [
         ("Energy", "Average Energy\nConsumption (kWh)"),
-        ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+        ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
         ("Duration", "Runtime (s)"),
     ]:
         # We extract the average cost per sample
@@ -567,7 +566,7 @@ def draw_figures():
         results = pd.read_csv(f"varying_nb_{variable}.csv")
         for col_name, label in [
             ("Energy", "Average Energy\nConsumption (kWh)"),
-            ("Carbon", "Average Carbon\nFootprint(kg eq.CO2)"),
+            ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
             ("Duration", "Runtime (s)"),
         ]:
             fig, ax = plt.subplots()
