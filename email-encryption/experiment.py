@@ -62,7 +62,7 @@ class Laboratory:
     def __init__(self, log_level=logging.INFO, experiment_name="experiments"):
         self.tracker = OfflineEmissionsTracker(
             measure_power_secs=1000,
-            country_iso_code="FRA",
+            country_iso_code="NLD",
             output_file="raw_emissions.csv",
             log_level="error",
         )

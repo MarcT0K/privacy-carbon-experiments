@@ -103,7 +103,7 @@ class Laboratory:
     def __init__(self, log_level=logging.DEBUG, experiment_name="experiments"):
         self.tracker = OfflineEmissionsTracker(
             measure_power_secs=1000,
-            country_iso_code="FRA",
+            country_iso_code="NLD",
             output_file="raw_emissions.csv",
             log_level="error",
         )
@@ -308,11 +308,6 @@ def varying_nb_features(laboratory):
             def plaintext_predict():
                 return model.predict(X_test)
 
-            laboratory.track_energy_footprint(
-                experiment_info=experiment_info,
-                encrypted=False,
-                experiment_function=plaintext_predict,
-            )
             try:
                 if not model_timeout[model_class]:
                     laboratory.track_energy_footprint(
