@@ -206,7 +206,7 @@ def varying_nb_features(laboratory):
         SGDRegressor: False,
     }
 
-    for nb_features in [3, 4, 5, 6, 7, 8, 9, 10]:
+    for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         for ml_task in ["classification", "classification"]:
             if ml_task == "classification":
