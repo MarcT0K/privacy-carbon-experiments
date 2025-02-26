@@ -18,15 +18,9 @@ import pandas as pd
 
 from codecarbon import OfflineEmissionsTracker
 from concrete.compiler import check_gpu_available
-from concrete.ml.sklearn import (
-    SGDClassifier,
-    SGDRegressor,
-)
-from sklearn.datasets import make_classification, make_regression
-from sklearn.linear_model import (
-    SGDClassifier as SklearnSGDClassifier,
-    SGDRegressor as SklearnSGDRegressor,
-)
+from concrete.ml.sklearn import SGDClassifier
+from sklearn.datasets import make_classification
+from sklearn.linear_model import SGDClassifier as SklearnSGDClassifier
 from sklearn.model_selection import train_test_split
 
 use_gpu_if_available = False
@@ -202,179 +196,151 @@ def varying_nb_features(laboratory):
     model_timeout = {
         SklearnSGDClassifier: False,
         SGDClassifier: False,
-        SklearnSGDRegressor: False,
-        SGDRegressor: False,
     }
 
     for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 100]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
-        for ml_task in ["classification", "regression"]:
-            if ml_task == "classification":
-                X, y = make_classification(
-                    n_features=nb_features,
-                    random_state=RANDOM_STATE,
-                    n_samples=NB_SAMPLES,
+        X, y = make_classification(
+            n_features=nb_features,
+            random_state=RANDOM_STATE,
+            n_samples=NB_SAMPLES,
+        )
+        model_class = SklearnSGDClassifier
+        encrypted_model_class = SGDClassifier
+
+        # Retrieve train and test sets:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
+        )
+
+        model = model_class(random_state=RANDOM_STATE, max_iter=N_ITERATIONS)
+        encrypted_model = encrypted_model_class(
+            random_state=RANDOM_STATE,
+            max_iter=N_ITERATIONS,
+            fit_encrypted=True,
+            parameters_range=(-1.0, 1.0),
+            verbose=True,
+        )
+
+        experiment_info = {
+            "model": type(encrypted_model).__name__,
+            "n_features": nb_features,
+            "n_samples": y_train.shape[0],
+        }
+
+        # Train the model on the test set in clear:
+        def plaintext_train():
+            model.fit(X_train, y_train)
+
+        try:
+            if not model_timeout[model_class]:
+                laboratory.track_energy_footprint(
+                    experiment_info=experiment_info,
+                    encrypted=False,
+                    experiment_function=plaintext_train,
                 )
-                model_class = SklearnSGDClassifier
-                encrypted_model_class = SGDClassifier
-            elif ml_task == "regression":
-                X, y = make_regression(
-                    n_features=nb_features,
-                    random_state=RANDOM_STATE,
-                    n_samples=NB_SAMPLES,
-                )
-                model_class = SklearnSGDRegressor
-                encrypted_model_class = SGDRegressor
             else:
-                raise ValueError
+                laboratory.logger.warning(
+                    "Skipping plaintext experiment (due to a previous timeout)"
+                )
+        except TimeoutError:
+            laboratory.logger.error("Timeout error...")
+            model_timeout[model_class] = True
 
-            # Retrieve train and test sets:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
-            )
+        # Perform the training in FHE:
+        def ciphertext_train():
+            encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
 
-            model = model_class(random_state=RANDOM_STATE, max_iter=N_ITERATIONS)
-            encrypted_model = encrypted_model_class(
-                random_state=RANDOM_STATE,
-                max_iter=N_ITERATIONS,
-                fit_encrypted=True,
-                parameters_range=(-1.0, 1.0),
-                verbose=True,
-            )
-
-            experiment_info = {
-                "model": type(encrypted_model).__name__,
-                "n_features": nb_features,
-                "n_samples": y_train.shape[0],
-            }
-
-            # Train the model on the test set in clear:
-            def plaintext_train():
-                model.fit(X_train, y_train)
-
-            try:
-                if not model_timeout[model_class]:
-                    laboratory.track_energy_footprint(
-                        experiment_info=experiment_info,
-                        encrypted=False,
-                        experiment_function=plaintext_train,
-                    )
-                else:
-                    laboratory.logger.warning(
-                        "Skipping plaintext experiment (due to a previous timeout)"
-                    )
-            except TimeoutError:
-                laboratory.logger.error("Timeout error...")
-                model_timeout[model_class] = True
-
-            # Perform the training in FHE:
-            def ciphertext_train():
-                encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
-
-            try:
-                if not model_timeout[encrypted_model_class]:
-                    laboratory.track_energy_footprint(
-                        experiment_info=experiment_info,
-                        encrypted=True,
-                        experiment_function=ciphertext_train,
-                    )
-                else:
-                    laboratory.logger.warning(
-                        "Skipping encrypted experiment (due to a previous timeout)"
-                    )
-            except TimeoutError:
-                laboratory.logger.error("Timeout error...")
-                model_timeout[encrypted_model_class] = True
+        try:
+            if not model_timeout[encrypted_model_class]:
+                laboratory.track_energy_footprint(
+                    experiment_info=experiment_info,
+                    encrypted=True,
+                    experiment_function=ciphertext_train,
+                )
+            else:
+                laboratory.logger.warning(
+                    "Skipping encrypted experiment (due to a previous timeout)"
+                )
+        except TimeoutError:
+            laboratory.logger.error("Timeout error...")
+            model_timeout[encrypted_model_class] = True
 
 
 def varying_nb_samples(laboratory):
     model_timeout = {
         SklearnSGDClassifier: False,
         SGDClassifier: False,
-        SklearnSGDRegressor: False,
-        SGDRegressor: False,
     }
     nb_features = 10
     for nb_samples in [20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 500, 1000]:
         laboratory.logger.info("NUMBER OF SAMPLES: %d", nb_samples)
 
-        for ml_task in ["classification", "regression"]:
-            if ml_task == "classification":
-                X, y = make_classification(
-                    n_features=nb_features,
-                    random_state=RANDOM_STATE,
-                    n_samples=nb_samples,
+        X, y = make_classification(
+            n_features=nb_features,
+            random_state=RANDOM_STATE,
+            n_samples=nb_samples,
+        )
+        model_class = SklearnSGDClassifier
+        encrypted_model_class = SGDClassifier
+
+        # Retrieve train and test sets:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
+        )
+
+        model = model_class(random_state=RANDOM_STATE, max_iter=N_ITERATIONS)
+        encrypted_model = encrypted_model_class(
+            random_state=RANDOM_STATE,
+            max_iter=N_ITERATIONS,
+            fit_encrypted=True,
+            parameters_range=(-1.0, 1.0),
+            verbose=True,
+        )
+
+        experiment_info = {
+            "model": type(encrypted_model).__name__,
+            "n_features": nb_features,
+            "n_samples": y_train.shape[0],
+        }
+
+        # Train the model on the test set in clear:
+        def plaintext_train():
+            model.fit(X_train, y_train)
+
+        try:
+            if not model_timeout[model_class]:
+                laboratory.track_energy_footprint(
+                    experiment_info=experiment_info,
+                    encrypted=False,
+                    experiment_function=plaintext_train,
                 )
-                model_class = SklearnSGDClassifier
-                encrypted_model_class = SGDClassifier
-            elif ml_task == "regression":
-                X, y = make_regression(
-                    n_features=nb_features,
-                    random_state=RANDOM_STATE,
-                    n_samples=nb_samples,
-                )
-                model_class = SklearnSGDRegressor
-                encrypted_model_class = SGDRegressor
             else:
-                raise ValueError
+                laboratory.logger.warning(
+                    "Skipping plaintext experiment (due to a previous timeout)"
+                )
+        except TimeoutError:
+            laboratory.logger.error("Timeout error...")
+            model_timeout[model_class] = True
 
-            # Retrieve train and test sets:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=TEST_SAMPLE_RATE, random_state=RANDOM_STATE
-            )
+        # Perform the training in FHE:
+        def ciphertext_train():
+            encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
 
-            model = model_class(random_state=RANDOM_STATE, max_iter=N_ITERATIONS)
-            encrypted_model = encrypted_model_class(
-                random_state=RANDOM_STATE,
-                max_iter=N_ITERATIONS,
-                fit_encrypted=True,
-                parameters_range=(-1.0, 1.0),
-                verbose=True,
-            )
-
-            experiment_info = {
-                "model": type(encrypted_model).__name__,
-                "n_features": nb_features,
-                "n_samples": y_train.shape[0],
-            }
-
-            # Train the model on the test set in clear:
-            def plaintext_train():
-                model.fit(X_train, y_train)
-
-            try:
-                if not model_timeout[model_class]:
-                    laboratory.track_energy_footprint(
-                        experiment_info=experiment_info,
-                        encrypted=False,
-                        experiment_function=plaintext_train,
-                    )
-                else:
-                    laboratory.logger.warning(
-                        "Skipping plaintext experiment (due to a previous timeout)"
-                    )
-            except TimeoutError:
-                laboratory.logger.error("Timeout error...")
-                model_timeout[model_class] = True
-
-            # Perform the training in FHE:
-            def ciphertext_train():
-                encrypted_model.fit(X_train, y_train, fhe="execute", device=device)
-
-            try:
-                if not model_timeout[encrypted_model_class]:
-                    laboratory.track_energy_footprint(
-                        experiment_info=experiment_info,
-                        encrypted=True,
-                        experiment_function=ciphertext_train,
-                    )
-                else:
-                    laboratory.logger.warning(
-                        "Skipping encrypted experiment (due to a previous timeout)"
-                    )
-            except TimeoutError:
-                laboratory.logger.error("Timeout error...")
-                model_timeout[encrypted_model_class] = True
+        try:
+            if not model_timeout[encrypted_model_class]:
+                laboratory.track_energy_footprint(
+                    experiment_info=experiment_info,
+                    encrypted=True,
+                    experiment_function=ciphertext_train,
+                )
+            else:
+                laboratory.logger.warning(
+                    "Skipping encrypted experiment (due to a previous timeout)"
+                )
+        except TimeoutError:
+            laboratory.logger.error("Timeout error...")
+            model_timeout[encrypted_model_class] = True
 
 
 def draw_figures():
