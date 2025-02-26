@@ -198,7 +198,7 @@ def varying_nb_features(laboratory):
         SGDClassifier: False,
     }
 
-    for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 100]:
+    for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
         X, y = make_classification(
             n_features=nb_features,
