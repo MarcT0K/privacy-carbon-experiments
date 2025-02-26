@@ -206,9 +206,9 @@ def varying_nb_features(laboratory):
         SGDRegressor: False,
     }
 
-    for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20]:
+    for nb_features in [4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 100]:
         laboratory.logger.info("NUMBER OF FEATURES: %d", nb_features)
-        for ml_task in ["classification", "classification"]:
+        for ml_task in ["classification", "regression"]:
             if ml_task == "classification":
                 X, y = make_classification(
                     n_features=nb_features,
@@ -217,7 +217,7 @@ def varying_nb_features(laboratory):
                 )
                 model_class = SklearnSGDClassifier
                 encrypted_model_class = SGDClassifier
-            elif ml_task == "classification":
+            elif ml_task == "regression":
                 X, y = make_regression(
                     n_features=nb_features,
                     random_state=RANDOM_STATE,
@@ -294,8 +294,8 @@ def varying_nb_samples(laboratory):
         SklearnSGDRegressor: False,
         SGDRegressor: False,
     }
-    nb_features = 5
-    for nb_samples in [20, 30, 40, 50, 60, 70, 80, 90, 100]:
+    nb_features = 10
+    for nb_samples in [20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 500, 1000]:
         laboratory.logger.info("NUMBER OF SAMPLES: %d", nb_samples)
 
         for ml_task in ["classification", "regression"]:
