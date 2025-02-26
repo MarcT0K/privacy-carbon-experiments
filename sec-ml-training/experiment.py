@@ -411,13 +411,13 @@ def draw_figures():
 
 
 def experiment():
-    # with Laboratory(experiment_name="varying_nb_features") as lab:
-    #     lab.logger.info("Benchmarking the influence of the number of features")
-    #     varying_nb_features(lab)
+    with Laboratory(experiment_name="varying_nb_features") as lab:
+        lab.logger.info("Benchmarking the influence of the number of features")
+        varying_nb_features(lab)
 
-    # with Laboratory(experiment_name="varying_nb_samples") as lab:
-    #     lab.logger.info("Benchmarking the influence of the number of samples")
-    #     varying_nb_samples(lab)
+    with Laboratory(experiment_name="varying_nb_samples") as lab:
+        lab.logger.info("Benchmarking the influence of the number of samples")
+        varying_nb_samples(lab)
 
     draw_figures()
 
