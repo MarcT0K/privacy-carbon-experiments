@@ -440,7 +440,7 @@ if __name__ == "__main__":
     # Start the experiment with root privileges
     print(f"{os.linesep}Starting the main experiment...")
     # Iterate through every dump
-    for dump in dumps:
+    for dump in dumps_folder_dict.keys():
         # Set the dump_to_test to the dump to test
         dump_to_test = dump
 
@@ -472,7 +472,7 @@ if __name__ == "__main__":
     print(
         f"{os.linesep}{os.linesep}All runs finished! Waiting for all results files to be generated..."
     )
-    for dump in dumps:
+    for dump in dumps_folder_dict.keys():
         while True:
             if Path(f"{project_path}/results_{dump}.csv").exists():
                 break
