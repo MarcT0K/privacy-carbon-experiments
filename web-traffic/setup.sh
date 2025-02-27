@@ -185,19 +185,11 @@ disable_SELinux
 
 # Download New York Times dump
 echo "Downloading New York Times dump"
-httrack "https://www.nytimes.com/" -O HTTPSCarbonExperimentDownloads/nytimes -r2 --robots=0
-
-# Download GitHub Chromium-Project dump
-echo "Downloading GitHub Chromium-Project dump"
-httrack "https://github.com/chromium/chromium" -O HTTPSCarbonExperimentDownloads/github -r2 --robots=0
+httrack "https://www.nytimes.com/" -O HTTPSCarbonExperimentDownloads/nytimes -r2 --robots=0 --depth=2
 
 # Download MDN docs dump
 echo "Downloading MDN docs dump"
-httrack "https://developer.mozilla.org/en-US/docs/Learn" -O HTTPSCarbonExperimentDownloads/mdn_learn -r2 --robots=0
-
-# Download amazon.nl dump
-echo "Downloading amazon.nl dump"
-httrack "https://www.amazon.nl/" -O HTTPSCarbonExperimentDownloads/amazon -r2 --robots=0
+httrack "https://developer.mozilla.org/en-US/docs/Learn" -O HTTPSCarbonExperimentDownloads/mdn_learn -r2 --robots=0 --depth=2
 
 # Install OpenSSL
 install_packages_with_package_manager "openssl"
@@ -273,21 +265,7 @@ http {
             try_files \$uri \$uri/ =404;
         }
 
-        location /github/github.com {
-            autoindex on;
-            autoindex_exact_size off;
-            autoindex_localtime on;
-            try_files \$uri \$uri/ =404;
-        }
-
         location /mdn_learn/developer.mozilla.org {
-            autoindex on;
-            autoindex_exact_size off;
-            autoindex_localtime on;
-            try_files \$uri \$uri/ =404;
-        }
-
-        location /amazon/www.amazon.nl {
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
