@@ -11,7 +11,7 @@ USER_NAME=${SUDO_USER:-$(whoami)}
 USER_DIR=$(eval echo "~$USER_NAME")
 
 # Path to the experiment.py file
-EXPERIMENT_PATH="$USER_DIR/HTTPSCarbonExperimentDownloads/experiment.py"
+EXPERIMENT_PATH="$USER_DIR/privacy-carbon-experiments/web-traffic/experiment.py"
 
 #-----------------------------------------END OF VARIABLES-----------------------------------------
 
@@ -153,6 +153,8 @@ enable_nginx_and_firewall
 
 # Install pip
 install_packages_with_package_manager "python3-pip"
+
+# Install python3 virtual env
 
 # Install curl & 7z & httrack
 install_packages_with_package_manager "curl p7zip httrack"
@@ -306,11 +308,11 @@ cd "$USER_DIR"
 source ~/.bashrc
 
 echo "Creating venv using python"
-python -m venv HTTPSCarbonExperimentDownloads/venv
+python3 -m venv HTTPSCarbonExperimentDownloads/venv
 
 # Activate the venv
 echo "Activating the venv"
-source HTTPSCarbonExperimentDownloads/venv/bin/activate
+source $USER_DIR/HTTPSCarbonExperimentDownloads/venv/bin/activate
 
 # Install necessary packages
 pip install codecarbon matplotlib pandas requests
