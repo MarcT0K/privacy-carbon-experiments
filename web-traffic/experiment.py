@@ -66,14 +66,9 @@ dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
 
 # UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
 QUANTITIES_UNITS = {
-    "duration": "s",
-    "emissions": "kgCO₂eq",
-    # "emissions_rate": "kgCO₂eq/s",
-    "energy_consumed": "kWh",
-    # "cpu_power": "W",
-    # "cpu_energy": "kWh",
-    # "ram_power": "W",
-    # "ram_energy": "kWh",
+    "duration": ("s", "Duration"),
+    "emissions": ("kgCO₂eq", "Carbon\nfootprint"),
+    "energy_consumed": ("kWh", "Energy\nconsumption"),
 }
 
 # RELEVANT FOLDER TO TEST FOR EACH DUMP
@@ -448,7 +443,7 @@ def generate_bar_plots():
         return
 
     # Iterate over each quantity and generate the plots
-    for quantity, quantity_unit in QUANTITIES_UNITS.items():
+    for quantity, (quantity_unit, quantity_name) in QUANTITIES_UNITS.items():
         # Create lists for the labels, HTTP values, HTTPS values, and variances
         x = []
         y_http = []
@@ -522,9 +517,8 @@ def generate_bar_plots():
         )
 
         # Add labels, title, and legend with increased font sizes
-        ax.set_xlabel("Tests")
-        ax.set_ylabel(f"{quantity.capitalize()} ({quantity_unit})")
-        ax.set_title(f"{quantity.capitalize()} of HTTP vs HTTPS")
+        ax.set_xlabel("Websites")
+        ax.set_ylabel(f"{quantity_name} ({quantity_unit})")
         ax.set_xticks(
             [i + bar_width / 2 for i in index]
         )  # Adjust x-ticks to be between bars
