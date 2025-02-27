@@ -55,14 +55,11 @@ project_path = os.path.dirname(__file__)
 cert_path = "/etc/nginx/ssl/localhost.crt"
 
 # USER DIRECTORY PATH (DO NOT CHANGE)
-user = os.environ.get("SUDO_USER")
-home_dir = os.path.expanduser(f"~{user}")
+# user = os.environ.get("SUDO_USER")
+home_dir = os.path.expanduser("~")
 
 # SERVER URL
 base_url = "localhost"
-
-# LIST OF ALL DUMPS
-dumps = ["Wikipedia", "NYTimes", "MDN"]
 
 # UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
 QUANTITIES_UNITS = {
@@ -150,7 +147,7 @@ def get_random_files():
     all_files = []
 
     # Walk through the directory and its subfolders
-    for root, _, files in os.walk(dumps_folder_dict.get(dump_to_test)):
+    for root, _, files in os.walk(dumps_folder_dict[dump_to_test]):
         for file in files:
             # Add the file to the all_files list
             all_files.append(os.path.join(root, file))
@@ -318,7 +315,7 @@ def gather_results():
 def generate_bar_plots():
     # Define the files
     files = []
-    for dump in dumps:
+    for dump in dumps_folder_dict.keys():
         # Store the absolute file path
         file_path = f"{project_path}/results_{dump}.csv"
 
