@@ -94,9 +94,6 @@ REPEAT_FACTOR = 10
 # SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
 
-# FETCH SIZES TO BE TESTED IN FETCH SIZES EXPERIMENT
-FETCH_SIZES = [1, 10, 100, 1000, 5000, 10000]
-
 # CSV HEADERS
 RESULTS_HEADER = [
     "",
@@ -249,104 +246,6 @@ def main_experiment():
             print("Experiment interrupted by user...")
 
 
-# Performs the file size experiment
-def file_size_experiment():
-    global dump_to_test
-    dump_to_test = "Wikipedia"
-    all_files = []
-
-    # Walk through the directory and its subfolders
-    for root, _, files in os.walk(dumps_folder_dict.get(dump_to_test)):
-        for file in files:
-            # Add the file to the all_files list
-            file_path = os.path.join(root, file)
-            # Include file size as a tuple (path, size)
-            all_files.append((file_path, os.path.getsize(file_path)))
-
-    # Create a DataFrame
-    files_df = pd.DataFrame(all_files, columns=["file_path", "file_size"])
-
-    # Set the number of bins
-    num_bins = 5
-    # Number of files to select from each bin
-    num_files_per_bin = 10
-
-    # Create bins based on file sizes
-    files_df["size_bin"] = pd.cut(files_df["file_size"], bins=num_bins)
-
-    # Randomly select files from each bin
-    selected_files = []
-    for _, bin_group in files_df.groupby("size_bin"):
-        # Take at most `num_files_per_bin` files from each bin
-        selected_files.extend(
-            bin_group.sample(n=min(len(bin_group), num_files_per_bin))[
-                "file_path"
-            ].tolist()
-        )
-
-    for protocol in ["http", "https"]:
-
-        for iteration in range(NB_RUNS):
-            # Create a CodeCarbon offline tracker
-            tracker = OfflineEmissionsTracker(
-                measure_power_secs=1,
-                country_iso_code="NLD",
-                output_file=f"{project_path}/file_size_data_{iteration}_{protocol}.csv",
-                log_level="error",
-            )
-
-            # Open the relevant results file
-            with open(
-                f"{project_path}/file_size_data_sizes_{iteration}_{protocol}.csv",
-                "w",
-                newline="",
-            ) as output_file:
-                writer = csv.writer(output_file, quoting=csv.QUOTE_MINIMAL)
-                writer.writerow(["size"])
-
-                for file in selected_files:
-                    # Start the tracker before fetching
-                    tracker.start()
-
-                    # Fetch each file using the specified protocol
-                    fetch(protocol, file)
-
-                    # Stop the tracker after the fetches are complete
-                    tracker.stop()
-
-                    # Write size
-                    writer.writerow([os.path.getsize(file)])
-
-
-# Performs the fetch size experiment
-def fetch_sizes_experiment():
-    global dump_to_test
-    dump_to_test = "Wikipedia"
-    selected_file = f"{dumps_folder_dict.get(dump_to_test)}/index.html"
-
-    for protocol in ["http", "https"]:
-
-        for iteration in range(NB_RUNS):
-            # Create a CodeCarbon offline tracker
-            tracker = OfflineEmissionsTracker(
-                measure_power_secs=1,
-                country_iso_code="NLD",
-                output_file=f"{project_path}/fetch_sizes_data_{iteration}_{protocol}.csv",
-                log_level="error",
-            )
-
-            for i in range(len(FETCH_SIZES)):
-                # Start the tracker before fetching
-                tracker.start()
-
-                for j in range(FETCH_SIZES[i]):
-                    # Fetch the file using the specified protocol
-                    fetch(protocol, selected_file[0])
-
-                # Stop the tracker after the fetches are complete
-                tracker.stop()
-
-
 # Fetches the results from raw_emissions_{dump_to_test}.csv and generates both a results and ratios csv file
 def gather_results():
     # Fetch the results
@@ -434,9 +333,7 @@ def generate_bar_plots():
             files.append(file_path)
 
     # Grab the quantities to plot
-    if len(files) > 0:
-        df = pd.read_csv(files[0])
-    else:
+    if len(files) == 0:
         print(
             "No results files available. First create results before generating plots..."
         )
