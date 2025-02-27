@@ -155,10 +155,15 @@ def get_random_files():
             # Add the file to the all_files list
             all_files.append(os.path.join(root, file))
 
+    if len(all_files) == 0:
+        raise ValueError
+
     # If there are fewer files than NB_FILES, we duplicate them
     if len(all_files) < NB_FILES:
         ratio = (NB_FILES // len(all_files)) + 1
         all_files = all_files * ratio
+
+    print(all_files)
 
     # Randomly select the specified number of files
     return random.sample(all_files, NB_FILES)
