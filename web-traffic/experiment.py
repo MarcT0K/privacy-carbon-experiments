@@ -85,15 +85,15 @@ dumps_folder_dict["xkcd"] = f"{home_dir}/HTTPSCarbonExperimentDownloads/xkcd/xkc
 # AMOUNT OF THREADS
 NB_THREADS = 8
 
-# NUMBER OF RANDOM FILES USED FROM DUMP (i.e., NUMBER OF FILES FETCHED PER RUN)
-NB_FILES = 1000
+# NUMBER OF REQUESTS FOR EACH DUMP
+NB_REQUESTS = 10000
 
 # SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
 
 # CSV HEADERS
 RESULTS_HEADER = [
-    "",
+    "protocol",
     "duration",
     "emissions",
     "emissions_rate",
@@ -102,13 +102,10 @@ RESULTS_HEADER = [
     "cpu_energy",
     "ram_power",
     "ram_energy",
-    "emissions_variance",
-    "emissions_rate_variance",
-    "energy_consumed_variance",
 ]
 
 RATIOS_HEADER = [
-    "",
+    "protocol",
     "duration",
     "emissions",
     "emissions_rate",
@@ -146,7 +143,7 @@ def remove_old_results():
                     print(f"Could not delete {file_path}: {e}")
 
 
-# Grabs NB_FILES random files from the dump_to_test
+# Grabs NB_REQUESTS random files from the dump_to_test
 def get_random_files():
     all_files = []
 
@@ -159,13 +156,13 @@ def get_random_files():
     if len(all_files) == 0:
         raise ValueError("Cannot find files for %s", dump_to_test)
 
-    # If there are fewer files than NB_FILES, we duplicate them
-    if len(all_files) < NB_FILES:
-        ratio = (NB_FILES // len(all_files)) + 1
+    # If there are fewer files than NB_REQUESTS, we duplicate them
+    if len(all_files) < NB_REQUESTS:
+        ratio = (NB_REQUESTS // len(all_files)) + 1
         all_files = all_files * ratio
 
     # Randomly select the specified number of files
-    return random.sample(all_files, NB_FILES)
+    return random.sample(all_files, NB_REQUESTS)
 
 
 # Extends the random files list, shuffles the list,
@@ -247,8 +244,12 @@ def gather_results():
 
     # Grab header row and separate http/https results
     header = df.columns
-    df_http = pd.DataFrame(df.iloc[::2].values, columns=header)
-    df_https = pd.DataFrame(df.iloc[1::2].values, columns=header)
+
+    # Consistency check
+    assert df.shape[0] == 2  # One row for HTTP and one for HTTPS
+
+    df_http = pd.DataFrame(df.iloc[0].values, columns=header)
+    df_https = pd.DataFrame(df.iloc[1].values, columns=header)
 
     # Open the relevant results file
     with open(f"{project_path}/results_{dump_to_test}.csv", "w", newline="") as file:
@@ -260,34 +261,28 @@ def gather_results():
         writer.writerow(
             [
                 "HTTP",
-                df_http["duration"].mean(),
-                df_http["emissions"].mean(),
-                df_http["emissions_rate"].mean(),
-                df_http["energy_consumed"].mean(),
-                df_http["cpu_power"].mean(),
-                df_http["cpu_energy"].mean(),
-                df_http["ram_power"].mean(),
-                df_http["ram_energy"].mean(),
-                df_http["emissions"].var(),
-                df_http["emissions_rate"].var(),
-                df_http["energy_consumed"].var(),
+                df_http["duration"],
+                df_http["emissions"],
+                df_http["emissions_rate"],
+                df_http["energy_consumed"],
+                df_http["cpu_power"],
+                df_http["cpu_energy"],
+                df_http["ram_power"],
+                df_http["ram_energy"],
             ]
         )
         # Write the HTTPS values row
         writer.writerow(
             [
                 "HTTPS",
-                df_https["duration"].mean(),
-                df_https["emissions"].mean(),
-                df_https["emissions_rate"].mean(),
-                df_https["energy_consumed"].mean(),
-                df_https["cpu_power"].mean(),
-                df_https["cpu_energy"].mean(),
-                df_https["ram_power"].mean(),
-                df_https["ram_energy"].mean(),
-                df_https["emissions"].var(),
-                df_https["emissions_rate"].var(),
-                df_https["energy_consumed"].var(),
+                df_https["duration"],
+                df_https["emissions"],
+                df_https["emissions_rate"],
+                df_https["energy_consumed"],
+                df_https["cpu_power"],
+                df_https["cpu_energy"],
+                df_https["ram_power"],
+                df_https["ram_energy"],
             ]
         )
 
@@ -301,14 +296,14 @@ def gather_results():
         writer.writerow(
             [
                 "Relative Ratio (HTTPS vs HTTP)",
-                df_https["duration"].mean() / df_http["duration"].mean(),
-                df_https["emissions"].mean() / df_http["emissions"].mean(),
-                df_https["emissions_rate"].mean() / df_http["emissions_rate"].mean(),
-                df_https["energy_consumed"].mean() / df_http["energy_consumed"].mean(),
-                df_https["cpu_power"].mean() / df_http["cpu_power"].mean(),
-                df_https["cpu_energy"].mean() / df_http["cpu_energy"].mean(),
-                df_https["ram_power"].mean() / df_http["ram_power"].mean(),
-                df_https["ram_energy"].mean() / df_http["ram_energy"].mean(),
+                df_https["duration"] / df_http["duration"],
+                df_https["emissions"] / df_http["emissions"],
+                df_https["emissions_rate"] / df_http["emissions_rate"],
+                df_https["energy_consumed"] / df_http["energy_consumed"],
+                df_https["cpu_power"] / df_http["cpu_power"],
+                df_https["cpu_energy"] / df_http["cpu_energy"],
+                df_https["ram_power"] / df_http["ram_power"],
+                df_https["ram_energy"] / df_http["ram_energy"],
             ]
         )
 
@@ -342,37 +337,23 @@ def generate_bar_plots():
 
         # Extract data for each quantity
         for file in files:
-            with open(file, "r") as existingFile:
-                reader = csv.reader(existingFile, quoting=csv.QUOTE_MINIMAL)
-                # Skip the header
-                header = next(reader, None)
+            df = pd.read_csv(file)
+            assert df.shape[0] == 2  # 1 line for HTTP and 1 for HTTPS
 
-                # Initialize variables for the quantity data
-                http_values = []
-                https_values = []
+            http_row = df[df["protocol"] == "HTTP"]
+            https_row = df[df["protocol"] == "HTTPS"]
 
-                # Collect HTTP and HTTPS values for the current quantity
-                for row in reader:
-                    if row[0] == "HTTP":
-                        http_values.append(float(row[RESULTS_HEADER.index(quantity)]))
-                    elif row[0] == "HTTPS":
-                        https_values.append(float(row[RESULTS_HEADER.index(quantity)]))
+            # Calculate mean and variance for HTTP and HTTPS
+            http_mean = http_row[quantity].iloc[0] / NB_REQUESTS
+            https_mean = https_row[quantity].iloc[0] / NB_REQUESTS
 
-                # Only append if both HTTP and HTTPS data are found for the file
-                if http_values and https_values:
-                    # Calculate mean and variance for HTTP and HTTPS
-                    http_mean = sum(http_values) / len(http_values)
-                    https_mean = sum(https_values) / len(https_values)
+            # Use the file name (without extension) as the label
+            test_name = file.replace(f"{project_path}/results_", "").replace(".csv", "")
 
-                    # Use the file name (without extension) as the label
-                    test_name = file.replace(f"{project_path}/results_", "").replace(
-                        ".csv", ""
-                    )
-
-                    # Add the relevant values to the lists
-                    x.append(test_name)
-                    y_http.append(http_mean)
-                    y_https.append(https_mean)
+            # Add the relevant values to the lists
+            x.append(test_name)
+            y_http.append(http_mean)
+            y_https.append(https_mean)
 
         # Plot grouped bar chart for the current quantity
         fig, ax = plt.subplots(figsize=(10, 6))
