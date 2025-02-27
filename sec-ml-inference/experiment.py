@@ -443,9 +443,9 @@ def draw_figures():
         "Neural\nNetwork",
     ]
     for col_name, label in [
-        ("Energy", "Average Energy\nConsumption (kWh)"),
-        ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
-        ("Duration", "Runtime (s)"),
+        ("Energy", "Average Energy Consumption\nper inference (kWh)"),
+        ("Carbon", "Average Carbon Footprint\nper inference (kg eq.CO2)"),
+        ("Duration", "Average Runtime\nper inference (s)"),
     ]:
         # We extract the average cost per sample
         plaintext_models = [
@@ -544,9 +544,9 @@ def draw_figures():
         "XGB",
     ]
     for col_name, label in [
-        ("Energy", "Average Energy\nConsumption (kWh)"),
-        ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
-        ("Duration", "Runtime (s)"),
+        ("Energy", "Average Energy Consumption\nper inference (kWh)"),
+        ("Carbon", "Average Carbon Footprint\nper inference (kg eq.CO2)"),
+        ("Duration", "Average Runtime\nper inference (s)"),
     ]:
         # We extract the average cost per sample
         plaintext_models = [
@@ -637,9 +637,9 @@ def draw_figures():
     for variable in ["features", "samples"]:
         results = pd.read_csv(f"varying_nb_{variable}.csv")
         for col_name, label in [
-            ("Energy", "Average Energy\nConsumption (kWh)"),
-            ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
-            ("Duration", "Runtime (s)"),
+            ("Energy", "Average Energy Consumption\nper inference (kWh)"),
+            ("Carbon", "Average Carbon Footprint\nper inference (kg eq.CO2)"),
+            ("Duration", "Average Runtime \nper inference (s)"),
         ]:
             fig, ax = plt.subplots()
             for model, model_label in [
@@ -649,7 +649,8 @@ def draw_figures():
             ]:
                 model_results = results[results["Model"] == model]
                 x = list(model_results[f"Nb {variable}"])
-                y = list(model_results[col_name])
+                nb_samples = model_results["Nb samples"]
+                y = list(model_results[col_name] / nb_samples)
                 assert len(x) != 0 and len(y) != 0
                 ax.plot(x, y, label=model_label, marker="x")
 
@@ -657,12 +658,13 @@ def draw_figures():
                     results["Model"] == "Encrypted " + model
                 ]
                 x = list(encrypted_model_results[f"Nb {variable}"])
-                y = list(encrypted_model_results[col_name])
+                nb_samples = encrypted_model_results["Nb samples"]
+                y = list(encrypted_model_results[col_name] / nb_samples)
                 ax.plot(x, y, label=model_label + " [encrypted]", marker="o")
 
             # Add some text for labels, title and custom x-axis tick labels, etc.
             ax.set(xlabel=f"Number of {variable}", ylabel=label)
-            ax.legend(prop={"size": 10}, framealpha=0.80)
+            ax.legend(loc="upper right", prop={"size": 8}, framealpha=0.80)
             ax.set_axisbelow(True)
             ax.yaxis.grid(color="gray", linestyle="dashed")
             ax.set_yscale("log")

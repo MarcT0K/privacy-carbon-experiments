@@ -347,8 +347,8 @@ def draw_figures():
     for variable in ["features", "samples"]:
         results = pd.read_csv(f"varying_nb_{variable}.csv")
         for col_name, label in [
-            ("Energy", "Average Energy\nConsumption (kWh)"),
-            ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
+            ("Energy", "Energy Consumption (kWh)"),
+            ("Carbon", "Carbon Footprint (kg eq.CO2)"),
             ("Duration", "Runtime (s)"),
         ]:
             fig, ax = plt.subplots()
