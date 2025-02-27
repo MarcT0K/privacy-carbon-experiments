@@ -524,7 +524,7 @@ def generate_bar_plots():
 
         # Add labels, title, and legend with increased font sizes
         ax.set_xlabel("Websites")
-        ax.set_ylabel(f"{quantity_name} ({quantity_unit})")
+        ax.set_ylabel(f"Average {quantity_name} ({quantity_unit})")
         ax.set_xticks(
             [i + bar_width / 2 for i in index]
         )  # Adjust x-ticks to be between bars
@@ -546,146 +546,6 @@ def generate_bar_plots():
 
         # Save the new plot
         plt.savefig(plot_path, format="png", bbox_inches="tight")
-
-
-# Generates a scatter plot showcasing file size vs emissions
-def generate_file_size_plot():
-    # Initialize lists to store emissions and file sizes for each run
-    http_emissions_runs = []
-    https_emissions_runs = []
-    http_sizes_runs = []
-    https_sizes_runs = []
-
-    # Load all iterations for HTTP and HTTPS
-    for i in range(NB_RUNS):
-        # Read emissions and file sizes for each run
-        http_emissions = pd.read_csv(f"{project_path}/file_size_data_{i}_http.csv")[
-            "emissions"
-        ]
-        https_emissions = pd.read_csv(f"{project_path}/file_size_data_{i}_https.csv")[
-            "emissions"
-        ]
-        http_sizes = pd.read_csv(f"{project_path}/file_size_data_sizes_{i}_http.csv")[
-            "size"
-        ]
-        https_sizes = pd.read_csv(f"{project_path}/file_size_data_sizes_{i}_https.csv")[
-            "size"
-        ]
-
-        # Append data for this run
-        http_emissions_runs.append(http_emissions)
-        https_emissions_runs.append(https_emissions)
-        http_sizes_runs.append(http_sizes)
-        https_sizes_runs.append(https_sizes)
-
-    # Convert the list of emissions and sizes into DataFrames
-    http_emissions_df = pd.DataFrame(http_emissions_runs)
-    https_emissions_df = pd.DataFrame(https_emissions_runs)
-    http_sizes_df = pd.DataFrame(http_sizes_runs)
-    https_sizes_df = pd.DataFrame(https_sizes_runs)
-
-    # Compute the average emissions and file sizes across all runs
-    http_emissions_mean = http_emissions_df.mean(axis=0)
-    https_emissions_mean = https_emissions_df.mean(axis=0)
-    http_sizes_mean = http_sizes_df.mean(axis=0)
-    https_sizes_mean = https_sizes_df.mean(axis=0)
-
-    # Create scatter plot
-    plt.figure(figsize=(10, 6))
-
-    # Plot HTTP and HTTPS data
-    plt.scatter(http_sizes_mean, http_emissions_mean, label="HTTP", alpha=0.7)
-    plt.scatter(https_sizes_mean, https_emissions_mean, label="HTTPS", alpha=0.7)
-
-    # Draw lines connecting HTTP and HTTPS for each file
-    for i in range(len(http_sizes_mean)):
-        plt.plot(
-            [http_sizes_mean[i], https_sizes_mean[i]],
-            [http_emissions_mean[i], https_emissions_mean[i]],
-            color="gray",
-            linestyle="--",
-            linewidth=0.8,
-        )
-
-    # Labeling with increased font sizes
-    plt.title("Scatter Plot of File Size vs Emissions")
-    plt.xlabel("File Size (bytes)")
-    plt.ylabel("Emissions (kgCO₂eq)")
-
-    # Adjust legend with larger font size
-    plt.legend()
-
-    # Adjust tick labels font size
-    plt.xticks()
-    plt.yticks()
-
-    plt.tight_layout()
-
-    # Delete the plot if it already exists
-    plot_path = f"{project_path}/file_size_plot.png"
-    if os.path.exists(plot_path):
-        os.remove(plot_path)
-
-    # Save the new plot
-    plt.savefig(plot_path, format="png", bbox_inches="tight")
-
-
-# Generates a plot showcasing fetch sizes vs emissions
-def generate_fetch_sizes_plot():
-    # Initialize lists to store emissions data
-    http_emissions_runs = []
-    https_emissions_runs = []
-
-    # Load all iterations for HTTP and HTTPS
-    for i in range(NB_RUNS):
-        # Read HTTP and HTTPS data for each run
-        http_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_http.csv")
-        https_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_https.csv")
-
-        # Append emissions data for this run
-        http_emissions_runs.append(http_data["emissions"])
-        https_emissions_runs.append(https_data["emissions"])
-
-    # Convert the list of emissions runs into DataFrames
-    http_emissions_df = pd.DataFrame(http_emissions_runs)
-    https_emissions_df = pd.DataFrame(https_emissions_runs)
-
-    # Compute the average emissions across all runs for each fetch size
-    http_emissions_mean = http_emissions_df.mean(axis=0)
-    https_emissions_mean = https_emissions_df.mean(axis=0)
-
-    # Plot the data
-    plt.figure(figsize=(10, 6))
-    plt.plot(
-        FETCH_SIZES,
-        http_emissions_mean,
-        label="HTTP",
-    )
-    plt.plot(
-        FETCH_SIZES,
-        https_emissions_mean,
-        label="HTTPS",
-    )
-
-    # Add labels, title, and legend
-    plt.title("Plot of Fetch Size vs Emissions")
-    plt.xlabel("Fetch Size (files)")
-    plt.ylabel("Emissions (kgCO₂eq)")
-    plt.legend()
-
-    # Increase tick label font sizes
-    plt.xticks()
-    plt.yticks()
-
-    plt.tight_layout()
-
-    # Delete the plot if it already exists
-    plot_path = f"{project_path}/fetch_sizes_plot.png"
-    if os.path.exists(plot_path):
-        os.remove(plot_path)
-
-    # Save the new plot
-    plt.savefig(plot_path, format="png", bbox_inches="tight")
 
 
 # ---------------------------------------------------END OF FUNCTIONS---------------------------------------------------#
@@ -751,58 +611,6 @@ if __name__ == "__main__":
         f"{os.linesep}Generating combined bar plots for every individual variable in results files..."
     )
     generate_bar_plots()
-
-    # Run the file size experiment
-    print(f"{os.linesep}Starting the file size experiment...")
-    file_size_experiment()
-
-    # Wait until every file_size_data file is generated
-    print(
-        f"{os.linesep}{os.linesep}File size experiment finished! Waiting for all results files to be generated..."
-    )
-    all_file_size_files = [f"file_size_data_{i}_http" for i in range(NB_RUNS)]
-    all_file_size_files.extend([f"file_size_data_{i}_https" for i in range(NB_RUNS)])
-    all_file_size_files.extend(
-        [f"file_size_data_sizes_{i}_http" for i in range(NB_RUNS)]
-    )
-    all_file_size_files.extend(
-        [f"file_size_data_sizes_{i}_https" for i in range(NB_RUNS)]
-    )
-    for file in all_file_size_files:
-        while True:
-            if Path(f"{project_path}/{file}.csv").exists():
-                break
-            else:
-                sleep(0.1)
-
-    # Generate the scatter plot showcasing file size versus emissions
-    print(
-        f"{os.linesep}Generating scatter plot showcasing file size versus emissions..."
-    )
-    generate_file_size_plot()
-
-    # Run the fetch sizes experiment
-    print(f"{os.linesep}Starting the fetch sizes experiment...")
-    fetch_sizes_experiment()
-
-    # Wait until every fetch_sizes_data file is generated
-    print(
-        f"{os.linesep}{os.linesep}Fetch sizes experiment finished! Waiting for all results files to be generated..."
-    )
-    all_fetch_sizes_files = [f"fetch_sizes_data_{i}_http" for i in range(NB_RUNS)]
-    all_fetch_sizes_files.extend(
-        [f"fetch_sizes_data_{i}_https" for i in range(NB_RUNS)]
-    )
-    for file in all_fetch_sizes_files:
-        while True:
-            if Path(f"{project_path}/{file}.csv").exists():
-                break
-            else:
-                sleep(0.1)
-
-    # Generate the plot showcasing fetch sizes versus emissions
-    print(f"{os.linesep}Generating plot showcasing fetch sizes versus emissions...")
-    generate_fetch_sizes_plot()
 
     # End of the experiment script
     print(
