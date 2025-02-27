@@ -62,7 +62,7 @@ home_dir = os.path.expanduser(f"~{user}")
 base_url = "localhost"
 
 # LIST OF ALL DUMPS
-dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
+dumps = ["Wikipedia", "NYTimes", "GitHub", "MDN", "Amazon"]
 
 # UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
 QUANTITIES_UNITS = {
@@ -73,29 +73,29 @@ QUANTITIES_UNITS = {
 
 # RELEVANT FOLDER TO TEST FOR EACH DUMP
 dumps_folder_dict = dict()
-dumps_folder_dict["wikipedia"] = f"{home_dir}/Downloads/wikipedia-simple-html/simple/"
-dumps_folder_dict["nytimes"] = f"{home_dir}/Downloads/nytimes/www.nytimes.com"
-dumps_folder_dict["github"] = f"{home_dir}/Downloads/github/github.com"
-dumps_folder_dict["mdn_learn"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
-dumps_folder_dict["amazon"] = f"{home_dir}/Downloads/amazon/www.amazon.nl"
+dumps_folder_dict["Wikipedia"] = f"{home_dir}/Downloads/wikipedia-simple-html/simple/"
+dumps_folder_dict["NYTimes"] = f"{home_dir}/Downloads/nytimes/www.nytimes.com"
+dumps_folder_dict["GitHub"] = f"{home_dir}/Downloads/github/github.com"
+dumps_folder_dict["MDN"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
+dumps_folder_dict["Amazon"] = f"{home_dir}/Downloads/amazon/www.amazon.nl"
 
 # AMOUNT OF THREADS
-threads = 8
+NB_THREADS = 8
 
 # NUMBER OF RANDOM FILES USED FROM DUMP
-num_files = 50
+NB_FILES = 50
 
 # NUMBER OF RUNS PER DUMP
-num_of_runs = 10
+NB_RUNS = 10
 
 # AMOUNT OF TIMES THE RANDOM FILES LIST IS REPEATED TO INCREASE AMOUNT OF REQUESTS
-repeat_factor = 10
+REPEAT_FACTOR = 10
 
 # SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
 
 # FETCH SIZES TO BE TESTED IN FETCH SIZES EXPERIMENT
-fetch_sizes = [1, 10, 100, 1000, 5000, 10000]
+FETCH_SIZES = [1, 10, 100, 1000, 5000, 10000]
 
 # CSV HEADERS
 RESULTS_HEADER = [
@@ -152,7 +152,7 @@ def remove_old_results():
                     print(f"Could not delete {file_path}: {e}")
 
 
-# Grabs num_files random files from the dump_to_test
+# Grabs NUM_FILES random files from the dump_to_test
 def get_random_files():
     all_files = []
 
@@ -162,12 +162,12 @@ def get_random_files():
             # Add the file to the all_files list
             all_files.append(os.path.join(root, file))
 
-    # If there are fewer files than num_files, return all of them
-    if len(all_files) <= num_files:
+    # If there are fewer files than NUM_FILES, return all of them
+    if len(all_files) <= NUM_FILES:
         return all_files
 
     # Randomly select the specified number of files
-    return random.sample(all_files, num_files)
+    return random.sample(all_files, NUM_FILES)
 
 
 # Extends the random files list, shuffles the list,
@@ -177,7 +177,7 @@ def setup():
 
     try:
         # Repeat list to increase # of fetches
-        files_to_fetch = get_random_files() * repeat_factor
+        files_to_fetch = get_random_files() * REPEAT_FACTOR
         # Shuffle the list for randomness
         random.shuffle(files_to_fetch)
 
@@ -236,7 +236,7 @@ def main_experiment():
             tracker.start()
 
             # Perform the fetches using a thread pool
-            with ThreadPoolExecutor(max_workers=threads) as executor:
+            with ThreadPoolExecutor(max_workers=NB_THREADS) as executor:
                 # Fetch each file using the specified protocol
                 executor.map(lambda file: fetch(protocol, file), files)
 
@@ -252,7 +252,7 @@ def main_experiment():
 # Performs the file size experiment
 def file_size_experiment():
     global dump_to_test
-    dump_to_test = "wikipedia"
+    dump_to_test = "Wikipedia"
     all_files = []
 
     # Walk through the directory and its subfolders
@@ -286,7 +286,7 @@ def file_size_experiment():
 
     for protocol in ["http", "https"]:
 
-        for iteration in range(num_of_runs):
+        for iteration in range(NB_RUNS):
             # Create a CodeCarbon offline tracker
             tracker = OfflineEmissionsTracker(
                 measure_power_secs=1,
@@ -321,12 +321,12 @@ def file_size_experiment():
 # Performs the fetch size experiment
 def fetch_sizes_experiment():
     global dump_to_test
-    dump_to_test = "wikipedia"
+    dump_to_test = "Wikipedia"
     selected_file = f"{dumps_folder_dict.get(dump_to_test)}/index.html"
 
     for protocol in ["http", "https"]:
 
-        for iteration in range(num_of_runs):
+        for iteration in range(NB_RUNS):
             # Create a CodeCarbon offline tracker
             tracker = OfflineEmissionsTracker(
                 measure_power_secs=1,
@@ -335,11 +335,11 @@ def fetch_sizes_experiment():
                 log_level="error",
             )
 
-            for i in range(len(fetch_sizes)):
+            for i in range(len(FETCH_SIZES)):
                 # Start the tracker before fetching
                 tracker.start()
 
-                for j in range(fetch_sizes[i]):
+                for j in range(FETCH_SIZES[i]):
                     # Fetch the file using the specified protocol
                     fetch(protocol, selected_file[0])
 
@@ -482,10 +482,8 @@ def generate_bar_plots():
                     ) / len(https_values)
 
                     # Use the file name (without extension) as the label
-                    test_name = (
-                        file.replace(f"{project_path}/results_", "")
-                        .replace(".csv", "")
-                        .capitalize()
+                    test_name = file.replace(f"{project_path}/results_", "").replace(
+                        ".csv", ""
                     )
 
                     # Add the relevant values to the lists
@@ -507,13 +505,21 @@ def generate_bar_plots():
         index = range(len(x))
 
         # Create bars for HTTP and HTTPS (with error bars for variances)
-        ax.bar(index, y_http, bar_width, label=f"HTTP {quantity}", yerr=http_std_devs)
+        ax.bar(
+            index,
+            y_http,
+            bar_width,
+            label=f"HTTP {quantity}",
+            yerr=http_std_devs,
+            **texture_1,
+        )
         ax.bar(
             [i + bar_width for i in index],
             y_https,
             bar_width,
             label=f"HTTPS {quantity}",
             yerr=https_std_devs,
+            **texture_2,
         )
 
         # Add labels, title, and legend with increased font sizes
@@ -525,31 +531,6 @@ def generate_bar_plots():
         ax.set_xticklabels(
             x, rotation=45, ha="right"
         )  # Set x-axis labels with rotation for readability
-
-        # Create a list containing all HTTP and HTTPS values (alternating between HTTP and HTTPS)
-        all_values = list(itertools.chain(*zip(y_http, y_https)))
-
-        # Annotate each bar with increased font size
-        for i, value in enumerate(all_values):
-            # Determine the x position of the text
-            # HTTP value
-            if i % 2 == 0:
-                x_pos = i // 2
-
-            # HTTPS value
-            else:
-                x_pos = i // 2 + bar_width
-
-            # Check if the value is smaller than 1e-6
-            if abs(value) < 1e-3:
-                # Use scientific notation
-                display_value = f"{value:.2e}"
-            else:
-                # Use regular floating-point format
-                display_value = f"{value:.2f}"
-
-            # Put the annotation in the correct place
-            plt.text(x_pos, 1.01 * value, display_value, ha="center")
 
         # Move the legend to the lower right with increased font size
         ax.legend(
@@ -576,7 +557,7 @@ def generate_file_size_plot():
     https_sizes_runs = []
 
     # Load all iterations for HTTP and HTTPS
-    for i in range(num_of_runs):
+    for i in range(NB_RUNS):
         # Read emissions and file sizes for each run
         http_emissions = pd.read_csv(f"{project_path}/file_size_data_{i}_http.csv")[
             "emissions"
@@ -656,7 +637,7 @@ def generate_fetch_sizes_plot():
     https_emissions_runs = []
 
     # Load all iterations for HTTP and HTTPS
-    for i in range(num_of_runs):
+    for i in range(NB_RUNS):
         # Read HTTP and HTTPS data for each run
         http_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_http.csv")
         https_data = pd.read_csv(f"{project_path}/fetch_sizes_data_{i}_https.csv")
@@ -676,12 +657,12 @@ def generate_fetch_sizes_plot():
     # Plot the data
     plt.figure(figsize=(10, 6))
     plt.plot(
-        fetch_sizes,
+        FETCH_SIZES,
         http_emissions_mean,
         label="HTTP",
     )
     plt.plot(
-        fetch_sizes,
+        FETCH_SIZES,
         https_emissions_mean,
         label="HTTPS",
     )
@@ -731,10 +712,10 @@ if __name__ == "__main__":
         dump_to_test = dump
 
         print(
-            f"{os.linesep}{os.linesep}Starting {num_of_runs} runs of the {dump_to_test} dump..."
+            f"{os.linesep}{os.linesep}Starting {NB_RUNS} runs of the {dump_to_test} dump..."
         )
-        # Perform num_of_runs runs
-        for i in range(num_of_runs):
+        # Perform NB_RUNS runs
+        for i in range(NB_RUNS):
             main_experiment()
             print(f"Run {i} finished!")
 
@@ -779,15 +760,13 @@ if __name__ == "__main__":
     print(
         f"{os.linesep}{os.linesep}File size experiment finished! Waiting for all results files to be generated..."
     )
-    all_file_size_files = [f"file_size_data_{i}_http" for i in range(num_of_runs)]
+    all_file_size_files = [f"file_size_data_{i}_http" for i in range(NB_RUNS)]
+    all_file_size_files.extend([f"file_size_data_{i}_https" for i in range(NB_RUNS)])
     all_file_size_files.extend(
-        [f"file_size_data_{i}_https" for i in range(num_of_runs)]
+        [f"file_size_data_sizes_{i}_http" for i in range(NB_RUNS)]
     )
     all_file_size_files.extend(
-        [f"file_size_data_sizes_{i}_http" for i in range(num_of_runs)]
-    )
-    all_file_size_files.extend(
-        [f"file_size_data_sizes_{i}_https" for i in range(num_of_runs)]
+        [f"file_size_data_sizes_{i}_https" for i in range(NB_RUNS)]
     )
     for file in all_file_size_files:
         while True:
@@ -810,9 +789,9 @@ if __name__ == "__main__":
     print(
         f"{os.linesep}{os.linesep}Fetch sizes experiment finished! Waiting for all results files to be generated..."
     )
-    all_fetch_sizes_files = [f"fetch_sizes_data_{i}_http" for i in range(num_of_runs)]
+    all_fetch_sizes_files = [f"fetch_sizes_data_{i}_http" for i in range(NB_RUNS)]
     all_fetch_sizes_files.extend(
-        [f"fetch_sizes_data_{i}_https" for i in range(num_of_runs)]
+        [f"fetch_sizes_data_{i}_https" for i in range(NB_RUNS)]
     )
     for file in all_fetch_sizes_files:
         while True:
