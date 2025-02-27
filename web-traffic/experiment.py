@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 # FIGURE TEMPLATE
 params = {
     "font.size": 15,
-    "axes.labelsize": 22,
+    "axes.labelsize": 18,
     "axes.grid": True,
     "grid.linestyle": "dashed",
     "grid.alpha": 0.5,
@@ -62,34 +62,30 @@ home_dir = os.path.expanduser(f"~{user}")
 base_url = "localhost"
 
 # LIST OF ALL DUMPS
-dumps = ["Wikipedia", "NYTimes", "GitHub", "MDN", "Amazon"]
+dumps = ["Wikipedia", "NYTimes", "MDN"]
 
 # UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
 QUANTITIES_UNITS = {
     "duration": ("s", "Duration"),
-    "emissions": ("kgCO₂eq", "Carbon\nfootprint"),
-    "energy_consumed": ("kWh", "Energy\nconsumption"),
+    "emissions": ("kgCO₂eq", "Carbon footprint"),
+    "energy_consumed": ("kWh", "Energy consumption"),
 }
 
 # RELEVANT FOLDER TO TEST FOR EACH DUMP
 dumps_folder_dict = dict()
 dumps_folder_dict["Wikipedia"] = f"{home_dir}/Downloads/wikipedia-simple-html/simple/"
 dumps_folder_dict["NYTimes"] = f"{home_dir}/Downloads/nytimes/www.nytimes.com"
-dumps_folder_dict["GitHub"] = f"{home_dir}/Downloads/github/github.com"
 dumps_folder_dict["MDN"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
-dumps_folder_dict["Amazon"] = f"{home_dir}/Downloads/amazon/www.amazon.nl"
 
 # AMOUNT OF THREADS
 NB_THREADS = 8
 
-# NUMBER OF RANDOM FILES USED FROM DUMP
-NB_FILES = 50
+# NUMBER OF RANDOM FILES USED FROM DUMP (i.e., NUMBER OF FILES FETCHED PER RUN)
+NB_FILES = 1000
 
 # NUMBER OF RUNS PER DUMP
-NB_RUNS = 10
+NB_RUNS = 1
 
-# AMOUNT OF TIMES THE RANDOM FILES LIST IS REPEATED TO INCREASE AMOUNT OF REQUESTS
-REPEAT_FACTOR = 10
 
 # SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
@@ -149,7 +145,7 @@ def remove_old_results():
                     print(f"Could not delete {file_path}: {e}")
 
 
-# Grabs NUM_FILES random files from the dump_to_test
+# Grabs NB_FILES random files from the dump_to_test
 def get_random_files():
     all_files = []
 
@@ -159,12 +155,13 @@ def get_random_files():
             # Add the file to the all_files list
             all_files.append(os.path.join(root, file))
 
-    # If there are fewer files than NUM_FILES, return all of them
-    if len(all_files) <= NUM_FILES:
-        return all_files
+    # If there are fewer files than NB_FILES, we duplicate them
+    if len(all_files) < NB_FILES:
+        ratio = (NB_FILES // len(all_files)) + 1
+        all_files = all_files * ratio
 
     # Randomly select the specified number of files
-    return random.sample(all_files, NUM_FILES)
+    return random.sample(all_files, NB_FILES)
 
 
 # Extends the random files list, shuffles the list,
@@ -174,7 +171,7 @@ def setup():
 
     try:
         # Repeat list to increase # of fetches
-        files_to_fetch = get_random_files() * REPEAT_FACTOR
+        files_to_fetch = get_random_files()
         # Shuffle the list for randomness
         random.shuffle(files_to_fetch)
 
@@ -345,8 +342,6 @@ def generate_bar_plots():
         x = []
         y_http = []
         y_https = []
-        http_variances = []
-        https_variances = []
 
         # Extract data for each quantity
         for file in files:
@@ -371,12 +366,6 @@ def generate_bar_plots():
                     # Calculate mean and variance for HTTP and HTTPS
                     http_mean = sum(http_values) / len(http_values)
                     https_mean = sum(https_values) / len(https_values)
-                    http_variance = sum(
-                        (x - http_mean) ** 2 for x in http_values
-                    ) / len(http_values)
-                    https_variance = sum(
-                        (x - https_mean) ** 2 for x in https_values
-                    ) / len(https_values)
 
                     # Use the file name (without extension) as the label
                     test_name = file.replace(f"{project_path}/results_", "").replace(
@@ -387,12 +376,6 @@ def generate_bar_plots():
                     x.append(test_name)
                     y_http.append(http_mean)
                     y_https.append(https_mean)
-                    http_variances.append(http_variance)
-                    https_variances.append(https_variance)
-
-        # Compute standard deviations from variances
-        http_std_devs = [math.sqrt(var) for var in http_variances]
-        https_std_devs = [math.sqrt(var) for var in https_variances]
 
         # Plot grouped bar chart for the current quantity
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -406,16 +389,14 @@ def generate_bar_plots():
             index,
             y_http,
             bar_width,
-            label=f"HTTP {quantity}",
-            yerr=http_std_devs,
+            label=f"HTTP {quantity_name}",
             **texture_1,
         )
         ax.bar(
             [i + bar_width for i in index],
             y_https,
             bar_width,
-            label=f"HTTPS {quantity}",
-            yerr=https_std_devs,
+            label=f"HTTPS {quantity_name}",
             **texture_2,
         )
 
