@@ -191,6 +191,12 @@ httrack "https://www.nytimes.com/" -O HTTPSCarbonExperimentDownloads/nytimes -r2
 echo "Downloading MDN docs dump"
 httrack "https://developer.mozilla.org/en-US/docs/Learn" -O HTTPSCarbonExperimentDownloads/mdn_learn -r2 --robots=0 --depth=2
 
+# Download Mastodon Blog dump
+httrack "https://blog.joinmastodon.org/" -O HTTPSCarbonExperimentDownloads/mastodon_blog -r2 --robots=0 --depth=2
+
+# Download xkcd
+httrack "https://xkcd.com/" -O HTTPSCarbonExperimentDownloads/xkcd -r2 --robots=0 --depth=2
+
 # Install OpenSSL
 install_packages_with_package_manager "openssl"
 

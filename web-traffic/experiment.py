@@ -77,16 +77,16 @@ dumps_folder_dict["NYTimes"] = (
 dumps_folder_dict["MDN"] = (
     f"{home_dir}/HTTPSCarbonExperimentDownloads/mdn_learn/developer.mozilla.org"
 )
+dumps_folder_dict["Mastodon Blog"] = (
+    f"{home_dir}/HTTPSCarbonExperimentDownloads/mastodon_blog/blog.joinmastodon.org"
+)
+dumps_folder_dict["xkcd"] = f"{home_dir}/HTTPSCarbonExperimentDownloads/xkcd/xkcd.com"
 
 # AMOUNT OF THREADS
 NB_THREADS = 8
 
 # NUMBER OF RANDOM FILES USED FROM DUMP (i.e., NUMBER OF FILES FETCHED PER RUN)
 NB_FILES = 1000
-
-# NUMBER OF RUNS PER DUMP
-NB_RUNS = 1
-
 
 # SPECIFIES THE CURRENT DUMP THAT IS BEING TESTED (DO NOT CHANGE)
 dump_to_test = ""
@@ -213,7 +213,7 @@ def main_experiment():
 
     # Create a CodeCarbon offline tracker
     tracker = OfflineEmissionsTracker(
-        measure_power_secs=1,
+        measure_power_secs=1000,
         country_iso_code="NLD",
         output_file=f"{project_path}/raw_emissions_{dump_to_test}.csv",
         log_level="error",
@@ -235,11 +235,9 @@ def main_experiment():
 
             # Stop the tracker after the fetches are complete
             tracker.stop()
-
-        except Exception as err:
-            print("Error occurred:", err)
         except KeyboardInterrupt:
             print("Experiment interrupted by user...")
+            raise
 
 
 # Fetches the results from raw_emissions_{dump_to_test}.csv and generates both a results and ratios csv file
@@ -409,12 +407,7 @@ def generate_bar_plots():
             x, rotation=45, ha="right"
         )  # Set x-axis labels with rotation for readability
 
-        # Move the legend to the lower right with increased font size
-        ax.legend(
-            loc="lower right",
-            bbox_to_anchor=(1, -0.25),  # Adjust legend position to align with the title
-            borderaxespad=0.1,
-        )
+        ax.legend()
 
         # Delete the plot if it already exists
         plot_path = f"{project_path}/{quantity}_plot.png"
@@ -449,12 +442,10 @@ if __name__ == "__main__":
         dump_to_test = dump
 
         print(
-            f"{os.linesep}{os.linesep}Starting {NB_RUNS} runs of the {dump_to_test} dump..."
+            f"{os.linesep}{os.linesep}Starting experiment on the {dump_to_test} dump..."
         )
-        # Perform NB_RUNS runs
-        for i in range(NB_RUNS):
-            main_experiment()
-            print(f"Run {i} finished!")
+        main_experiment()
+        print(f"Experiment {dump_to_test} finished!")
 
         # Wait until raw_emissions_{dump}.csv is generated (if needed)
         print(
