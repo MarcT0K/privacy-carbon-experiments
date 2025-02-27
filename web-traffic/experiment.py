@@ -248,8 +248,8 @@ def gather_results():
     # Consistency check
     assert df.shape[0] == 2  # One row for HTTP and one for HTTPS
 
-    df_http = pd.DataFrame(df.iloc[0].values, columns=header)
-    df_https = pd.DataFrame(df.iloc[1].values, columns=header)
+    df_http = pd.DataFrame(df.iloc[0:1].values, columns=header)
+    df_https = pd.DataFrame(df.iloc[1:2].values, columns=header)
 
     # Open the relevant results file
     with open(f"{project_path}/results_{dump_to_test}.csv", "w", newline="") as file:
