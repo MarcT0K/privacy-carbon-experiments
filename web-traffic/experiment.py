@@ -1,6 +1,4 @@
-import itertools
 import random
-import math
 import warnings
 import pandas as pd
 import csv
@@ -70,9 +68,15 @@ QUANTITIES_UNITS = {
 
 # RELEVANT FOLDER TO TEST FOR EACH DUMP
 dumps_folder_dict = dict()
-dumps_folder_dict["Wikipedia"] = f"{home_dir}/Downloads/wikipedia-simple-html/simple/"
-dumps_folder_dict["NYTimes"] = f"{home_dir}/Downloads/nytimes/www.nytimes.com"
-dumps_folder_dict["MDN"] = f"{home_dir}/Downloads/mdn_learn/developer.mozilla.org"
+dumps_folder_dict["Wikipedia"] = (
+    f"{home_dir}/HTTPSCarbonExperimentDownloads/wikipedia-simple-html/simple/"
+)
+dumps_folder_dict["NYTimes"] = (
+    f"{home_dir}/HTTPSCarbonExperimentDownloads/nytimes/www.nytimes.com"
+)
+dumps_folder_dict["MDN"] = (
+    f"{home_dir}/HTTPSCarbonExperimentDownloads/mdn_learn/developer.mozilla.org"
+)
 
 # AMOUNT OF THREADS
 NB_THREADS = 8
