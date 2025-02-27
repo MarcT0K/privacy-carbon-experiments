@@ -104,17 +104,6 @@ RESULTS_HEADER = [
     "ram_energy",
 ]
 
-RATIOS_HEADER = [
-    "protocol",
-    "duration",
-    "emissions",
-    "emissions_rate",
-    "energy_consumed",
-    "cpu_power",
-    "cpu_energy",
-    "ram_power",
-    "ram_energy",
-]
 
 # ---------------------------------------------------END OF VARIABLES---------------------------------------------------#
 
@@ -128,14 +117,9 @@ def remove_old_results():
     for root, _, files in os.walk(project_path):
         for file in files:
             # Check if the file is a raw_emissions_{dump_to_test}.csv, file_size_data file or fetch_sizes_data file
-            if (
-                f"raw_emissions_{dump_to_test}" in file
-                or "file_size_data" in file
-                or "fetch_sizes_data" in file
-            ):
+            if f"raw_emissions_{dump_to_test}" in file:
                 # Store the complete file path
                 file_path = os.path.join(root, file)
-
                 try:
                     # Remove the file
                     os.remove(file_path)
@@ -237,7 +221,7 @@ def main_experiment():
             raise
 
 
-# Fetches the results from raw_emissions_{dump_to_test}.csv and generates both a results and ratios csv file
+# Fetches the results from raw_emissions_{dump_to_test}.csv and generates a results csv file
 def gather_results():
     # Fetch the results
     df = pd.read_csv(f"{project_path}/raw_emissions_{dump_to_test}.csv")
@@ -261,49 +245,28 @@ def gather_results():
         writer.writerow(
             [
                 "HTTP",
-                df_http["duration"],
-                df_http["emissions"],
-                df_http["emissions_rate"],
-                df_http["energy_consumed"],
-                df_http["cpu_power"],
-                df_http["cpu_energy"],
-                df_http["ram_power"],
-                df_http["ram_energy"],
+                df_http["duration"].iloc[0],
+                df_http["emissions"].iloc[0],
+                df_http["emissions_rate"].iloc[0],
+                df_http["energy_consumed"].iloc[0],
+                df_http["cpu_power"].iloc[0],
+                df_http["cpu_energy"].iloc[0],
+                df_http["ram_power"].iloc[0],
+                df_http["ram_energy"].iloc[0],
             ]
         )
         # Write the HTTPS values row
         writer.writerow(
             [
                 "HTTPS",
-                df_https["duration"],
-                df_https["emissions"],
-                df_https["emissions_rate"],
-                df_https["energy_consumed"],
-                df_https["cpu_power"],
-                df_https["cpu_energy"],
-                df_https["ram_power"],
-                df_https["ram_energy"],
-            ]
-        )
-
-    # Open the relative ratio (HTTPS vs HTTP) file
-    with open(f"{project_path}/ratios_{dump_to_test}.csv", "w", newline="") as file:
-        # Create a writer for the file
-        writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
-        # Write the header row
-        writer.writerow(RATIOS_HEADER)
-        # Write the relative ratios row
-        writer.writerow(
-            [
-                "Relative Ratio (HTTPS vs HTTP)",
-                df_https["duration"] / df_http["duration"],
-                df_https["emissions"] / df_http["emissions"],
-                df_https["emissions_rate"] / df_http["emissions_rate"],
-                df_https["energy_consumed"] / df_http["energy_consumed"],
-                df_https["cpu_power"] / df_http["cpu_power"],
-                df_https["cpu_energy"] / df_http["cpu_energy"],
-                df_https["ram_power"] / df_http["ram_power"],
-                df_https["ram_energy"] / df_http["ram_energy"],
+                df_https["duration"].iloc[0],
+                df_https["emissions"].iloc[0],
+                df_https["emissions_rate"].iloc[0],
+                df_https["energy_consumed"].iloc[0],
+                df_https["cpu_power"].iloc[0],
+                df_https["cpu_energy"].iloc[0],
+                df_https["ram_power"].iloc[0],
+                df_https["ram_energy"].iloc[0],
             ]
         )
 
@@ -421,6 +384,8 @@ if __name__ == "__main__":
     for dump in dumps_folder_dict.keys():
         # Set the dump_to_test to the dump to test
         dump_to_test = dump
+
+        remove_old_results()
 
         print(
             f"{os.linesep}{os.linesep}Starting experiment on the {dump_to_test} dump..."
