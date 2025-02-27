@@ -157,7 +157,7 @@ def get_random_files():
             all_files.append(os.path.join(root, file))
 
     if len(all_files) == 0:
-        raise ValueError
+        raise ValueError("Cannot find files for %s", dump_to_test)
 
     # If there are fewer files than NB_FILES, we duplicate them
     if len(all_files) < NB_FILES:
@@ -175,7 +175,7 @@ def setup():
 
     # Repeat list to increase # of fetches
     files_to_fetch = get_random_files()
-    print("Files to fetch:", files_to_fetch)
+
     # Shuffle the list for randomness
     random.shuffle(files_to_fetch)
 

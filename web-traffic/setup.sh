@@ -157,7 +157,7 @@ install_packages_with_package_manager "python3-pip"
 # Install python3 virtual env
 
 # Install curl & 7z & httrack
-install_packages_with_package_manager "curl p7zip httrack"
+install_packages_with_package_manager "curl p7zip-full httrack"
 
 # Download Wikipedia 2007 dump
 navigate_downloads
