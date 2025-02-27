@@ -68,12 +68,12 @@ dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
 quantities_units = {
     "duration": "s",
     "emissions": "kgCO₂eq",
-    "emissions_rate": "kgCO₂eq/s",
+    # "emissions_rate": "kgCO₂eq/s",
     "energy_consumed": "kWh",
-    "cpu_power": "W",
-    "cpu_energy": "kWh",
-    "ram_power": "W",
-    "ram_energy": "kWh",
+    # "cpu_power": "W",
+    # "cpu_energy": "kWh",
+    # "ram_power": "W",
+    # "ram_energy": "kWh",
 }
 
 # RELEVANT FOLDER TO TEST FOR EACH DUMP
