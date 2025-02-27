@@ -11,7 +11,7 @@ USER_NAME=${SUDO_USER:-$(whoami)}
 USER_DIR=$(eval echo "~$USER_NAME")
 
 # Path to the experiment.py file
-EXPERIMENT_PATH="$USER_DIR/Downloads/experiment.py"
+EXPERIMENT_PATH="$USER_DIR/HTTPSCarbonExperimentDownloads/experiment.py"
 
 #-----------------------------------------END OF VARIABLES-----------------------------------------
 
@@ -125,8 +125,8 @@ disable_SELinux() {
 
 # Function to navigate to Downloads folder (and create the folder first if non-existent)
 navigate_downloads() {
-	mkdir -p "$USER_DIR/Downloads"
-	cd "$USER_DIR/Downloads"
+	mkdir -p "$USER_DIR/HTTPSCarbonExperimentDownloads"
+	cd "$USER_DIR/HTTPSCarbonExperimentDownloads"
 }
 
 #-----------------------------------------END OF FUNCTIONS-----------------------------------------
@@ -175,7 +175,7 @@ NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;
 
 # Change permissions of the Wikipedia dump so Nginx can access it
 echo "Changing Wikipedia folder permissions"
-sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x Downloads/wikipedia-simple-html
+sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x HTTPSCarbonExperimentDownloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
 echo "disabling SELinux temporarily if applicable"
@@ -183,19 +183,19 @@ disable_SELinux
 
 # Download New York Times dump
 echo "Downloading New York Times dump"
-httrack "https://www.nytimes.com/" -O Downloads/nytimes -r2 --robots=0
+httrack "https://www.nytimes.com/" -O HTTPSCarbonExperimentDownloads/nytimes -r2 --robots=0
 
 # Download GitHub Chromium-Project dump
 echo "Downloading GitHub Chromium-Project dump"
-httrack "https://github.com/chromium/chromium" -O Downloads/github -r2 --robots=0
+httrack "https://github.com/chromium/chromium" -O HTTPSCarbonExperimentDownloads/github -r2 --robots=0
 
 # Download MDN docs dump
 echo "Downloading MDN docs dump"
-httrack "https://developer.mozilla.org/en-US/docs/Learn" -O Downloads/mdn_learn -r2 --robots=0
+httrack "https://developer.mozilla.org/en-US/docs/Learn" -O HTTPSCarbonExperimentDownloads/mdn_learn -r2 --robots=0
 
 # Download amazon.nl dump
 echo "Downloading amazon.nl dump"
-httrack "https://www.amazon.nl/" -O Downloads/amazon -r2 --robots=0
+httrack "https://www.amazon.nl/" -O HTTPSCarbonExperimentDownloads/amazon -r2 --robots=0
 
 # Install OpenSSL
 install_packages_with_package_manager "openssl"
@@ -255,7 +255,7 @@ http {
         ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
-        root $USER_DIR/Downloads;
+        root $USER_DIR/HTTPSCarbonExperimentDownloads;
 
         location /wikipedia-simple-html/simple {
             autoindex on;
@@ -306,11 +306,11 @@ cd "$USER_DIR"
 source ~/.bashrc
 
 echo "Creating venv using python"
-python -m venv Downloads/venv
+python -m venv HTTPSCarbonExperimentDownloads/venv
 
 # Activate the venv
 echo "Activating the venv"
-source Downloads/venv/bin/activate
+source HTTPSCarbonExperimentDownloads/venv/bin/activate
 
 # Install necessary packages
 pip install codecarbon matplotlib pandas requests
@@ -319,6 +319,6 @@ pip install codecarbon matplotlib pandas requests
 sudo chmod +x $EXPERIMENT_PATH
 
 # Run the experiment (CHANGE PATH TO EXPERIMENT IF NECESSARY)
-sudo $USER_DIR/Downloads/venv/bin/python $EXPERIMENT_PATH
+sudo $USER_DIR/HTTPSCarbonExperimentDownloads/venv/bin/python $EXPERIMENT_PATH
 
 #-------------------------------------------END OF SCRIPT-------------------------------------------
