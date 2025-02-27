@@ -44,7 +44,7 @@ RANDOM_STATE = 7568
 # FIGURE TEMPLATE
 params = {
     "font.size": 15,
-    "axes.labelsize": 22,
+    "axes.labelsize": 18,
     "axes.grid": True,
     "grid.linestyle": "dashed",
     "grid.alpha": 0.5,
@@ -662,7 +662,7 @@ def draw_figures():
 
             # Add some text for labels, title and custom x-axis tick labels, etc.
             ax.set(xlabel=f"Number of {variable}", ylabel=label)
-            ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.80)
+            ax.legend(prop={"size": 10}, framealpha=0.80)
             ax.set_axisbelow(True)
             ax.yaxis.grid(color="gray", linestyle="dashed")
             ax.set_yscale("log")
