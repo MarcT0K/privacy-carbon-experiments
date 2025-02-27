@@ -163,8 +163,6 @@ def get_random_files():
         ratio = (NB_FILES // len(all_files)) + 1
         all_files = all_files * ratio
 
-    print(all_files)
-
     # Randomly select the specified number of files
     return random.sample(all_files, NB_FILES)
 
@@ -174,22 +172,17 @@ def get_random_files():
 def setup():
     result = dict()
 
-    try:
-        # Repeat list to increase # of fetches
-        files_to_fetch = get_random_files()
-        # Shuffle the list for randomness
-        random.shuffle(files_to_fetch)
+    # Repeat list to increase # of fetches
+    files_to_fetch = get_random_files()
+    print("Files to fetch:", files_to_fetch)
+    # Shuffle the list for randomness
+    random.shuffle(files_to_fetch)
 
-        for protocol in ["http", "https"]:
-            # Prepare a list of (protocol, file) tuples
-            files_to_fetch = [(protocol, file) for file in files_to_fetch]
-            # Store the files to be fetched in the result dictionary
-            result[f"files_{protocol}"] = files_to_fetch
-
-    except Exception as err:
-        print("Error occurred:", err)
-    except KeyboardInterrupt:
-        print("Experiment interrupted by user...")
+    for protocol in ["http", "https"]:
+        # Prepare a list of (protocol, file) tuples
+        files_to_fetch = [(protocol, file) for file in files_to_fetch]
+        # Store the files to be fetched in the result dictionary
+        result[f"files_{protocol}"] = files_to_fetch
 
     return result
 
