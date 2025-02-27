@@ -65,7 +65,7 @@ base_url = "localhost"
 dumps = ["wikipedia", "nytimes", "github", "mdn_learn", "amazon"]
 
 # UNITS OF EVERY RELEVANT QUANTITY IN RESULTS FILE
-quantities_units = {
+QUANTITIES_UNITS = {
     "duration": "s",
     "emissions": "kgCO₂eq",
     # "emissions_rate": "kgCO₂eq/s",
@@ -101,6 +101,34 @@ dump_to_test = ""
 
 # FETCH SIZES TO BE TESTED IN FETCH SIZES EXPERIMENT
 fetch_sizes = [1, 10, 100, 1000, 5000, 10000]
+
+# CSV HEADERS
+RESULTS_HEADER = [
+    "",
+    "duration",
+    "emissions",
+    "emissions_rate",
+    "energy_consumed",
+    "cpu_power",
+    "cpu_energy",
+    "ram_power",
+    "ram_energy",
+    "emissions_variance",
+    "emissions_rate_variance",
+    "energy_consumed_variance",
+]
+
+RATIOS_HEADER = [
+    "",
+    "duration",
+    "emissions",
+    "emissions_rate",
+    "energy_consumed",
+    "cpu_power",
+    "cpu_energy",
+    "ram_power",
+    "ram_energy",
+]
 
 # ---------------------------------------------------END OF VARIABLES---------------------------------------------------#
 
@@ -339,22 +367,7 @@ def gather_results():
         # Create a writer for the file
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
-        writer.writerow(
-            [
-                "",
-                "duration",
-                "emissions",
-                "emissions_rate",
-                "energy_consumed",
-                "cpu_power",
-                "cpu_energy",
-                "ram_power",
-                "ram_energy",
-                "emissions_variance",
-                "emissions_rate_variance",
-                "energy_consumed_variance",
-            ]
-        )
+        writer.writerow(RESULTS_HEADER)
         # Write the HTTP values row
         writer.writerow(
             [
@@ -395,19 +408,7 @@ def gather_results():
         # Create a writer for the file
         writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
         # Write the header row
-        writer.writerow(
-            [
-                "",
-                "duration",
-                "emissions",
-                "emissions_rate",
-                "energy_consumed",
-                "cpu_power",
-                "cpu_energy",
-                "ram_power",
-                "ram_energy",
-            ]
-        )
+        writer.writerow(RATIOS_HEADER)
         # Write the relative ratios row
         writer.writerow(
             [
@@ -440,7 +441,6 @@ def generate_bar_plots():
     # Grab the quantities to plot
     if len(files) > 0:
         df = pd.read_csv(files[0])
-        quantities = list(df.columns[1:])
     else:
         print(
             "No results files available. First create results before generating plots..."
@@ -448,7 +448,7 @@ def generate_bar_plots():
         return
 
     # Iterate over each quantity and generate the plots
-    for quantity in quantities:
+    for quantity, quantity_unit in QUANTITIES_UNITS.items():
         # Create lists for the labels, HTTP values, HTTPS values, and variances
         x = []
         y_http = []
@@ -470,9 +470,9 @@ def generate_bar_plots():
                 # Collect HTTP and HTTPS values for the current quantity
                 for row in reader:
                     if row[0] == "HTTP":
-                        http_values.append(float(row[quantities.index(quantity) + 1]))
+                        http_values.append(float(row[RESULTS_HEADER.index(quantity)]))
                     elif row[0] == "HTTPS":
-                        https_values.append(float(row[quantities.index(quantity) + 1]))
+                        https_values.append(float(row[RESULTS_HEADER.index(quantity)]))
 
                 # Only append if both HTTP and HTTPS data are found for the file
                 if http_values and https_values:
@@ -522,7 +522,6 @@ def generate_bar_plots():
         )
 
         # Add labels, title, and legend with increased font sizes
-        quantity_unit = quantities_units[quantity]
         ax.set_xlabel("Tests")
         ax.set_ylabel(f"{quantity.capitalize()} ({quantity_unit})")
         ax.set_title(f"{quantity.capitalize()} of HTTP vs HTTPS")
