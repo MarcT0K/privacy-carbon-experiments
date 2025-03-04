@@ -503,7 +503,7 @@ def draw_figures():
         width = 0.4  # the width of the bars
 
         fig, ax = plt.subplots()
-        fig.set_figwidth(9)
+        fig.set_figwidth(11)
         rects1 = ax.bar(
             x - 0.5 * width,
             plaintext_models,
@@ -604,7 +604,7 @@ def draw_figures():
         width = 0.4  # the width of the bars
 
         fig, ax = plt.subplots()
-        fig.set_figwidth(9)
+        fig.set_figwidth(12)
         rects1 = ax.bar(
             x - 0.5 * width,
             plaintext_models,

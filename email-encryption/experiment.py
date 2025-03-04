@@ -25,7 +25,7 @@ NB_MAILS = 30109
 # FIGURE TEMPLATE
 params = {
     "font.size": 15,
-    "axes.labelsize": 22,
+    "axes.labelsize": 18,
     "axes.grid": True,
     "grid.linestyle": "dashed",
     "grid.alpha": 0.7,
@@ -259,9 +259,9 @@ def draw_figures():
     results = pd.read_csv("experiments.csv")
     operations = ["RSA", "ECC", "ElGamal"]
     for col_name, label in [
-        ("Energy", "Average Energy\nConsumption (kWh)"),
-        ("Carbon", "Average Carbon\nFootprint (kg eq.CO2)"),
-        ("Duration", "Runtime (s)"),
+        ("Energy", "Average Energy Consumption\nper email (kWh)"),
+        ("Carbon", "Average Carbon Footprint\nper email (kg eq.CO2)"),
+        ("Duration", "Average Runtime\nper email (s)"),
     ]:
         # We extract the average cost per mail
         encryption_costs = [
