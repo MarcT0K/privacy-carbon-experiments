@@ -1,8 +1,14 @@
-# Measuring the carbon footprint of cryptographically-enhanced privacy
+# Measuring the Carbon Footprint of Cryptographic Privacy-Enhancing Technologies
 
-The goal of this project is to measure the carbon overhead induced by privacy enhancement.
+Authors: Marc Damie, Mihai Pop, and Merijn Posthuma
 
-To do so, we identify applications with optional crypto-based privacy enhancement. The overhead will be then the carbon difference between a deployment with privacy enhancement and a deployment without.
+## Abstract
+
+Privacy-enhancing technologies (PETs) have gained significant attention in response to regulations like the GDPR, driving the development of applications that prioritize user data protection. At the same time, the information and communication technology (ICT) sector faces growing pressure to reduce its environmental footprint, particularly its carbon emissions. While numerous studies have assessed the energy footprint of various ICT applications, the environmental footprint of cryptographic PETs remains largely unexplored.
+
+Our work addresses this gap by proposing a standardized methodology for evaluating the carbon footprint of PETs. We then measure the energy and carbon footprint increase induced by five cryptographic PETs (compared to their non-private equivalent): HTTPS web browsing, encrypted machine learning inference, encrypted ML training, encrypted databases, and email encryption. Our findings reveal significant variability in carbon footprint increases, ranging from a modest twofold increase in HTTPS web browsing to a 10,000-fold increase in encrypted ML.
+
+Our study provides essential data to help decision-makers assess privacy-carbon trade-offs in such applications. Finally, we outline key research directions for developing PETs that balance strong privacy protection with environmental sustainability.
 
 ## Building an experiment
 
