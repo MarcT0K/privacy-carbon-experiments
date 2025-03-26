@@ -68,7 +68,7 @@ swissse_per_query_energy = [
 fig, ax = plt.subplots()
 ax.plot(size_db, energy_plaintext, label="Plaintext database", marker="x")
 ax.plot(size_db, energy_swissse, label="Encrypted database", marker="o")
-ax.set(xlabel="Database size", ylabel="Average Carbon footprint\n per query (kgCO₂eq)")
+ax.set(xlabel="Database size", ylabel="Average Energy Consumption\n per query (kWh)")
 ax.legend(prop={"size": 12}, framealpha=0.80)
 ax.set_axisbelow(True)
 ax.yaxis.grid(color="gray", linestyle="dashed")
