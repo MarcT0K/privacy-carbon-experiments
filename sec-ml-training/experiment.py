@@ -95,7 +95,7 @@ class Laboratory:
             measure_power_secs=1000,
             country_iso_code="NLD",
             output_file="raw_emissions.csv",
-            log_level="debug",
+            log_level="info",
         )
 
         self.started = False

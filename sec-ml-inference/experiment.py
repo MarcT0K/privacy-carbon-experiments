@@ -105,7 +105,7 @@ class Laboratory:
             measure_power_secs=1000,
             country_iso_code="NLD",
             output_file="raw_emissions.csv",
-            log_level="debug",
+            log_level="info",
         )
 
         self.started = False
@@ -522,7 +522,7 @@ def draw_figures():
         )
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
-        ax.set(xlabel="Classifiction models", ylabel=label)
+        ax.set(xlabel="Classification models", ylabel=label)
         ax.set_xticks(x)
         ax.set_xticklabels(classif_models)
         ax.legend(loc="upper left", prop={"size": 12}, framealpha=0.98)
