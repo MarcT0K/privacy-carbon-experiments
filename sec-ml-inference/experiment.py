@@ -70,7 +70,7 @@ prop_cycle = plt.rcParams["axes.prop_cycle"]
 colors = prop_cycle.by_key()["color"]
 
 
-def timeout(seconds=3600):
+def timeout(seconds=10000):
     def decorator(func):
         def _handle_timeout(signum, frame):
             raise TimeoutError()
@@ -105,7 +105,7 @@ class Laboratory:
             measure_power_secs=1000,
             country_iso_code="NLD",
             output_file="raw_emissions.csv",
-            log_level="error",
+            log_level="debug",
         )
 
         self.started = False
