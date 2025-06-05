@@ -306,6 +306,6 @@ pip install codecarbon matplotlib pandas requests
 sudo chmod +x $EXPERIMENT_PATH
 
 # Run the experiment (CHANGE PATH TO EXPERIMENT IF NECESSARY)
-sudo $USER_DIR/HTTPSCarbonExperimentDownloads/venv/bin/python $EXPERIMENT_PATH
+$USER_DIR/HTTPSCarbonExperimentDownloads/venv/bin/python $EXPERIMENT_PATH
 
 #-------------------------------------------END OF SCRIPT-------------------------------------------
