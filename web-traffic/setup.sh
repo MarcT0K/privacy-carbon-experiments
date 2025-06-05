@@ -153,6 +153,7 @@ enable_nginx_and_firewall
 
 # Install pip
 install_packages_with_package_manager "python3-pip"
+install_packages_with_package_manager "python3-venv"
 
 # Install python3 virtual env
 

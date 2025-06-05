@@ -53,8 +53,8 @@ project_path = os.path.dirname(__file__)
 cert_path = "/etc/nginx/ssl/localhost.crt"
 
 # USER DIRECTORY PATH (DO NOT CHANGE)
-# user = os.environ.get("SUDO_USER")
-home_dir = os.path.expanduser("~")
+user = os.environ.get("SUDO_USER")
+home_dir = f"/home/{user}/"
 
 # SERVER URL
 base_url = "localhost"
