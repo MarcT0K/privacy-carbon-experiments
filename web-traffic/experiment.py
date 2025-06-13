@@ -54,7 +54,7 @@ cert_path = "/etc/nginx/ssl/localhost.crt"
 
 # USER DIRECTORY PATH (DO NOT CHANGE)
 user = os.environ.get("SUDO_USER")
-home_dir = f"/home/{user}/"
+home_dir = f"/home/{user}"
 
 # SERVER URL
 base_url = "localhost"
@@ -172,7 +172,7 @@ def setup():
 # Performs a single fetch request using {protocol}
 def fetch(protocol, file):
     # Store the absolute fetch URL
-    fetch_url = f"{protocol}://{base_url}/{file}"
+    fetch_url = f"{protocol}://{base_url}{file}"
 
     if protocol == "http":
         # Fetch the file using HTTP
