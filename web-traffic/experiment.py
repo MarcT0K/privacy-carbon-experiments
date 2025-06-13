@@ -135,7 +135,9 @@ def get_random_files():
     for root, _, files in os.walk(dumps_folder_dict[dump_to_test]):
         for file in files:
             # Add the file to the all_files list
-            all_files.append(os.path.join(root, file))
+            complete_path = os.path.join(root, file)
+            url_path = complete_path.split("HTTPSCarbonExperimentDownloads")[1]
+            all_files.append(url_path)
 
     if len(all_files) == 0:
         raise ValueError("Cannot find files for %s", dump_to_test)
