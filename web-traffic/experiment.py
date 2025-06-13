@@ -37,9 +37,7 @@ handler.setFormatter(
     )
 )
 file_handler = logging.FileHandler("web-traffic-experiment.log")
-file_handler.setFormatter(
-    logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
-)
+file_handler.setFormatter(logging.Formatter("[%(asctime)s %(levelname)s] %(message)s"))
 logger.addHandler(file_handler)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
@@ -413,7 +411,7 @@ if __name__ == "__main__":
         exit(1)
 
     # Start the experiment with root privileges
-    logger.info(f"{os.linesep}Starting the main experiment...")
+    logger.info("Starting the main experiment...")
     # Iterate through every dump
     for dump in dumps_folder_dict.keys():
         # Set the dump_to_test to the dump to test
@@ -421,16 +419,12 @@ if __name__ == "__main__":
 
         remove_old_results()
 
-        logger.info(
-            f"{os.linesep}{os.linesep}Starting experiment on the {dump_to_test} dump..."
-        )
+        logger.info(f"Starting experiment on the {dump_to_test} dump...")
         main_experiment()
         logger.info(f"Experiment {dump_to_test} finished!")
 
         # Wait until raw_emissions_{dump}.csv is generated (if needed)
-        logger.info(
-            f"{os.linesep}Waiting for raw_emissions_{dump_to_test}.csv to be generated..."
-        )
+        logger.info(f"Waiting for raw_emissions_{dump_to_test}.csv to be generated...")
         counter = 0
         while (
             not Path(f"{project_path}/raw_emissions_{dump_to_test}.csv").exists()
@@ -440,13 +434,11 @@ if __name__ == "__main__":
             counter += 1
 
         # Put the relevant results into the results_{dump_to_test}.csv file
-        logger.info(f"{os.linesep}Writing relevant results to results_{dump_to_test}.csv...")
+        logger.info(f"Writing relevant results to results_{dump_to_test}.csv...")
         gather_results()
 
     # Wait until every results file is generated
-    logger.info(
-        f"{os.linesep}{os.linesep}All runs finished! Waiting for all results files to be generated..."
-    )
+    logger.info("All runs finished! Waiting for all results files to be generated...")
     for dump in dumps_folder_dict.keys():
         while True:
             if Path(f"{project_path}/results_{dump}.csv").exists():
@@ -456,13 +448,11 @@ if __name__ == "__main__":
 
     # Generate plots of every column of relevant results for every dump
     logger.info(
-        f"{os.linesep}Generating combined bar plots for every individual variable in results files..."
+        "Generating combined bar plots for every individual variable in results files..."
     )
     generate_bar_plots()
 
     # End of the experiment script
-    logger.info(
-        f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}"
-    )
+    logger.info("All experiments finished!\nTerminating...")
 
 # ----------------------------------------------------END OF SCRIPT-----------------------------------------------------#
