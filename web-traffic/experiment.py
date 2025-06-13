@@ -36,14 +36,11 @@ handler.setFormatter(
         },
     )
 )
-handler.setLevel(logging.INFO)
-
 file_handler = logging.FileHandler("web-traffic-experiment.log")
 file_handler.setFormatter(logging.Formatter("[%(asctime)s %(levelname)s] %(message)s"))
-file_handler.setLevel(logging.DEBUG)
-
 logger.addHandler(file_handler)
 logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 # --------------------------------------------------START OF VARIABLES--------------------------------------------------#
