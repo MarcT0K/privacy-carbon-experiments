@@ -301,7 +301,7 @@ echo "Activating the venv"
 source $USER_DIR/HTTPSCarbonExperimentDownloads/venv/bin/activate
 
 # Install necessary packages
-pip install codecarbon matplotlib pandas requests
+pip install codecarbon matplotlib pandas requests colorlog
 
 # Give execution permission to experiment.py
 sudo chmod +x $EXPERIMENT_PATH
