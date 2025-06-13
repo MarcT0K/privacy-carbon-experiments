@@ -254,7 +254,7 @@ http {
 
         ssl_certificate /etc/nginx/ssl/localhost.crt;
         ssl_certificate_key /etc/nginx/ssl/localhost.key;
-        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+        ssl_protocols TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
 
         root $USER_DIR/HTTPSCarbonExperimentDownloads;
