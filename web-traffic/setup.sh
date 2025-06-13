@@ -179,6 +179,7 @@ NGINX_USER=$(grep -E '^user' /etc/nginx/nginx.conf | awk '{print $2}' | sed 's/;
 # Change permissions of the Wikipedia dump so Nginx can access it
 echo "Changing Wikipedia folder permissions"
 sudo setfacl -R -m u:$NGINX_USER:r-x,d:u:$NGINX_USER:r-x HTTPSCarbonExperimentDownloads/wikipedia-simple-html
+sudo chmod -R 755 HTTPSCarbonExperimentDownloads/wikipedia-simple-html
 
 # Disable SELinux (if applicable)
 echo "disabling SELinux temporarily if applicable"

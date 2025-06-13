@@ -163,8 +163,8 @@ def setup():
     random.shuffle(files_to_fetch)
 
     for protocol in ["http", "https"]:
-        # Prepare a list of (protocol, file) tuples
-        files_to_fetch = [(protocol, file) for file in files_to_fetch]
+        # Prepare a list of files
+        files_to_fetch = [file for file in files_to_fetch]
         # Store the files to be fetched in the result dictionary
         result[f"files_{protocol}"] = files_to_fetch
 
