@@ -42,7 +42,7 @@ file_handler.setFormatter(
 )
 logger.addHandler(file_handler)
 logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # --------------------------------------------------START OF VARIABLES--------------------------------------------------#
