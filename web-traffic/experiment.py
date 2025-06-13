@@ -1,5 +1,7 @@
 import random
 import warnings
+import colorlog
+import logging
 import pandas as pd
 import csv
 import matplotlib.pyplot as plt
@@ -14,6 +16,33 @@ from concurrent.futures import ThreadPoolExecutor
 
 # TERMINAL EXECUTION COMMAND
 # sudo /path/to/your/virtualenv/bin/python path/to/your/project_folder/experiment.py
+
+# --------------------------------------------------LOGGER--------------------------------------------------------------#
+
+logger = colorlog.getLogger()
+logger.handlers = []  # Reset handlers
+handler = colorlog.StreamHandler()
+handler.setFormatter(
+    colorlog.ColoredFormatter(
+        "%(log_color)s[%(asctime)s %(levelname)s] %(white)s%(message)s",
+        datefmt="%H:%M:%S",
+        reset=True,
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red",
+        },
+    )
+)
+file_handler = logging.FileHandler("web-traffic-experiment.log")
+file_handler.setFormatter(
+    logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
+)
+logger.addHandler(file_handler)
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 
 # --------------------------------------------------START OF VARIABLES--------------------------------------------------#
@@ -124,7 +153,7 @@ def remove_old_results():
                     # Remove the file
                     os.remove(file_path)
                 except (PermissionError, FileNotFoundError) as e:
-                    print(f"Could not delete {file_path}: {e}")
+                    logger.error(f"Could not delete {file_path}: {e}")
 
 
 # Grabs NB_REQUESTS random files from the dump_to_test
@@ -183,6 +212,9 @@ def fetch(protocol, file):
         # Fetch the file using HTTPS, using the local certificate
         response = requests.get(fetch_url, verify=cert_path)
 
+    if response.status_code != 200:
+        logger.error("Invalid status code %d for %s", response.status_code, fetch_url)
+
     return response
 
 
@@ -219,7 +251,7 @@ def main_experiment():
             # Stop the tracker after the fetches are complete
             tracker.stop()
         except KeyboardInterrupt:
-            print("Experiment interrupted by user...")
+            logger.error("Experiment interrupted by user...")
             raise
 
 
@@ -288,7 +320,7 @@ def generate_bar_plots():
 
     # Grab the quantities to plot
     if len(files) == 0:
-        print(
+        logger.error(
             "No results files available. First create results before generating plots..."
         )
         return
@@ -374,14 +406,14 @@ if __name__ == "__main__":
     # Check if running with root
     if os.geteuid() != 0:
         # Experiment is started without root
-        print(
+        logger.error(
             "Root privileges were not granted. \nThis script needs root in order to generate valid results!"
         )
         # Abort the experiment
         exit(1)
 
     # Start the experiment with root privileges
-    print(f"{os.linesep}Starting the main experiment...")
+    logger.info(f"{os.linesep}Starting the main experiment...")
     # Iterate through every dump
     for dump in dumps_folder_dict.keys():
         # Set the dump_to_test to the dump to test
@@ -389,14 +421,14 @@ if __name__ == "__main__":
 
         remove_old_results()
 
-        print(
+        logger.info(
             f"{os.linesep}{os.linesep}Starting experiment on the {dump_to_test} dump..."
         )
         main_experiment()
-        print(f"Experiment {dump_to_test} finished!")
+        logger.info(f"Experiment {dump_to_test} finished!")
 
         # Wait until raw_emissions_{dump}.csv is generated (if needed)
-        print(
+        logger.info(
             f"{os.linesep}Waiting for raw_emissions_{dump_to_test}.csv to be generated..."
         )
         counter = 0
@@ -408,11 +440,11 @@ if __name__ == "__main__":
             counter += 1
 
         # Put the relevant results into the results_{dump_to_test}.csv file
-        print(f"{os.linesep}Writing relevant results to results_{dump_to_test}.csv...")
+        logger.info(f"{os.linesep}Writing relevant results to results_{dump_to_test}.csv...")
         gather_results()
 
     # Wait until every results file is generated
-    print(
+    logger.info(
         f"{os.linesep}{os.linesep}All runs finished! Waiting for all results files to be generated..."
     )
     for dump in dumps_folder_dict.keys():
@@ -423,13 +455,13 @@ if __name__ == "__main__":
                 sleep(0.1)
 
     # Generate plots of every column of relevant results for every dump
-    print(
+    logger.info(
         f"{os.linesep}Generating combined bar plots for every individual variable in results files..."
     )
     generate_bar_plots()
 
     # End of the experiment script
-    print(
+    logger.info(
         f"{os.linesep}All experiments finished!{os.linesep}Terminating...{os.linesep}"
     )
 
